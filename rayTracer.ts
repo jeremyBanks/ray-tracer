@@ -21,15 +21,20 @@ class RayTracer {
     
     draw() {
         this.focalPoint = V(0, 0, -512);
-        this.sensorCenter = this.sensorCenter.add(V(Math.random() * 64 - 32, 0, 0));
+
+        // give the camera a bit of random tilty drift
+        this.sensorCenter = this.sensorCenter.add(V(
+            Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1));
 
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
-                const pixel = this.drawPixel(x, y);
+                if (Math.random() > 0.01) continue;
+
+                const pixel = this.drawPixel(x, y).pow(0.45);
                 const offset = (y * this.width + x) * 4;
-                this.image.data[offset + 0] = pixel.pow(0.45).r8;
-                this.image.data[offset + 1] = pixel.pow(0.45).g8;
-                this.image.data[offset + 2] = pixel.pow(0.45).b8;
+                this.image.data[offset + 0] = pixel.r8;
+                this.image.data[offset + 1] = pixel.g8;
+                this.image.data[offset + 2] = pixel.b8;
                 this.image.data[offset + 3] = 0xFF;
             }
         }
@@ -288,4 +293,4 @@ class Sphere extends Hittable {
 const tracer = new RayTracer();
 document.body.appendChild(tracer.display);
 
-setInterval(() => tracer.draw(), 1000);
+setInterval(() => tracer.draw(), 1000 / 60);
