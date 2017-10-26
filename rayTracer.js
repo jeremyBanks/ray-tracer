@@ -5,13 +5,16 @@ class RayTracer {
         this.height = 100;
         this.scene = [
             new Sphere(V(-50, 30, 10), 30, new Material(new RGB(0.5, 1.0, 0.7))),
-            new Sphere(V(50, 50, 10), 50, new Material(new RGB(0.7, 0.5, 0.3))),
+            new Sphere(V(50, 50, 20), 50, new Material(new RGB(0.7, 0.5, 0.3))),
             new Sphere(V(0, -500, 0), 500, new Material(RGB.WHITE)),
+            new Sphere(V(-50, 100, 1000), 100, new Material(RGB.BLACK)),
             // giant red object behind us, which we should never see
             new Sphere(V(0, -0, -5000), 3000, new Material(new RGB(1.0, 0.0, 0.0))),
         ];
         this.focalPoint = V(0, 25, -100);
         this.sensorCenter = V(0, 25, 0);
+        // after this many bounces, the ray yields to the background color I guess?
+        this.maxBounces = 4;
         this.canvas = document.createElement('canvas');
         this.canvas.width = this.width;
         this.canvas.height = this.height;
@@ -47,19 +50,22 @@ class RayTracer {
         const sensorPoint = this.sensorCenter.sub(V(-(this.width - 1) / 2 + x, -(this.height - 1) / 2 + y));
         // a ray projecting out from the sensor, away from the focal point
         const ray = new Ray(sensorPoint, sensorPoint.sub(this.focalPoint).direction);
-        return this.drawRayPixel(ray);
+        return this.getRayColor(ray);
     }
-    drawRayPixel(ray) {
+    getRayColor(ray, background) {
         const hit = this.getRayHit(ray);
         if (hit) {
-            return new RGB(
-            // goofy normal shading
-            hit.subject.material.color.r * (hit.normal.x / 2 + 0.5) * (hit.normal.y / 2 + 0.5), hit.subject.material.color.g * (hit.normal.y / 2 + 0.5), hit.subject.material.color.b * (hit.normal.z / 2 + 0.5) * (hit.normal.y / 2 + 0.5));
+            return RGB.blend([
+                new RGB(hit.subject.material.color.r, hit.subject.material.color.g, hit.subject.material.color.b),
+                this.getRayColor(new Ray(hit.location, hit.normal, [hit].concat(ray.previousHits)), RGB.BLACK)
+            ]);
         }
-        // background, if we draw nothing else, draw a color reflecting the ray's direction.
-        return new RGB(ray.direction.x, ray.direction.y, ray.direction.z);
+        // background, defaulting to a color reflecting the ray's direction.
+        return background || new RGB(ray.direction.x, ray.direction.y, ray.direction.z);
     }
     getRayHit(ray) {
+        if (ray.previousHits.length >= this.maxBounces)
+            return null;
         const hits = [];
         for (const hittable of this.scene) {
             hits.push(...hittable.hits(ray));
