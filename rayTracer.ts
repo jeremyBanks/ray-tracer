@@ -1,6 +1,6 @@
 class RayTracer {
-    width = 512;
-    height = 256;
+    width = 200;
+    height = 100;
 
     canvas: HTMLCanvasElement;
     context: CanvasRenderingContext2D;
@@ -22,15 +22,17 @@ class RayTracer {
     draw() {
         this.focalPoint = V(0, 0, -512);
 
-        // give the camera a bit of random tilty drift
-        this.sensorCenter = this.sensorCenter.add(V(
-            Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1));
-
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
-                if (Math.random() > 0.1) continue;
+                const samplesPerPixel = 4;
+                const colors: RGB[] = [];
+                for (let i = 0; i < samplesPerPixel; i++) {
+                    const dx = Math.random() - 0.5;
+                    const dy = Math.random() - 0.5;
+                    colors.push(this.drawSensorPixel(x + dx, y + dy));
+                }
+                const pixel = RGB.blend(colors).pow(0.45);
 
-                const pixel = this.drawPixel(x, y).pow(0.45);
                 const offset = (y * this.width + x) * 4;
                 this.image.data[offset + 0] = pixel.r8;
                 this.image.data[offset + 1] = pixel.g8;
@@ -44,17 +46,18 @@ class RayTracer {
     }
     
     scene: Hittable[] = [
-        new Sphere(V(200, 100, 1500), 300, new Material(new RGB(0.5, 1.0, 0.7))),
-        new Sphere(V(-500, -50, 1750), 200, new Material(new RGB(0.3, 0.6, 0.8))),
+        new Sphere(V(-50, 30, 10), 30, new Material(new RGB(0.5, 1.0, 0.7))),
+        new Sphere(V(50, 50, 10), 50, new Material(new RGB(0.7, 0.5, 0.3))),
+        new Sphere(V(0, -500, 0), 500, new Material(RGB.WHITE)),
 
         // giant red object behind us, which we should never see
         new Sphere(V(0, -0, -5000), 3000, new Material(new RGB(1.0, 0.0, 0.0))),
     ];
     
-    focalPoint: Vector = V(0, 0, -1024);
-    sensorCenter: Vector = V(0, 0, 0);
+    focalPoint: Vector = V(0, 25, -100);
+    sensorCenter: Vector = V(0, 25, 0);
     
-    drawPixel(x: number, y: number): RGB {
+    drawSensorPixel(x: number, y: number): RGB {
         const sensorPoint = this.sensorCenter.sub(V(
             -(this.width - 1) / 2 + x,
             -(this.height - 1) / 2 + y
@@ -63,21 +66,30 @@ class RayTracer {
       // a ray projecting out from the sensor, away from the focal point
       const ray = new Ray(sensorPoint, sensorPoint.sub(this.focalPoint).direction);
 
-      const hits: Hit[] = [];
-      for (const hittable of this.scene) {
-          hits.push(...hittable.hits(ray));
-      }
-      hits.sort((a, b) => a.t - b.t);
-      const firstHit = hits[0] || null;
-      if (firstHit) {
-          return new RGB(
-            firstHit.subject.material.color.r * (firstHit.normal.x / 2 + 0.5) * (firstHit.normal.y / 2 + 0.5),
-            firstHit.subject.material.color.g * (firstHit.normal.y / 2 + 0.5),
-            firstHit.subject.material.color.b * (firstHit.normal.z / 2 + 0.5) * (firstHit.normal.y / 2 + 0.5));
-      }
+      return this.drawRayPixel(ray);
+    }
+
+    drawRayPixel(ray: Ray): RGB {
+        const hit = this.getRayHit(ray);
+        if (hit) {
+            return new RGB(
+                // goofy normal shading
+                hit.subject.material.color.r * (hit.normal.x / 2 + 0.5) * (hit.normal.y / 2 + 0.5),
+                hit.subject.material.color.g * (hit.normal.y / 2 + 0.5),
+                hit.subject.material.color.b * (hit.normal.z / 2 + 0.5) * (hit.normal.y / 2 + 0.5));
+        }
       
-      // background, if we draw nothing else, draw a color reflecting the ray's direction.
-      return new RGB(ray.direction.x, ray.direction.y, ray.direction.z);
+        // background, if we draw nothing else, draw a color reflecting the ray's direction.
+        return new RGB(ray.direction.x, ray.direction.y, ray.direction.z);
+    }
+
+    getRayHit(ray: Ray): Hit | null {
+        const hits: Hit[] = [];
+        for (const hittable of this.scene) {
+            hits.push(...hittable.hits(ray));
+        }
+        hits.sort((a, b) => a.t - b.t);
+        return hits[0] || null;
     }
 }
 
@@ -107,6 +119,19 @@ class RGB {
 
     static BLACK = new RGB(0.0, 0.0, 0.0);
     static WHITE = new RGB(1.0, 1.0, 1.0);
+    static RED = new RGB(1.0, 0.0, 0.0);
+    static GREEN = new RGB(0.0, 1.0, 0.0);
+    static BLUE = new RGB(0.0, 0.0, 1.0);
+
+    static blend(colors: RGB[]) {
+        let r = 0, g = 0, b = 0;
+        for (const c of colors) {
+            r += c.r;
+            g += c.g;
+            b += c.b;
+        }
+        return new RGB(r / colors.length, g / colors.length, b / colors.length);
+    }
 }
 
 
@@ -208,9 +233,13 @@ class Ray {
     origin: Vector;
     direction: Vector;
 
-    constructor(origin: Vector, direction: Vector) {
+    // Previous hits whose reflections led to this ray.
+    previousHits: Hit[];
+
+    constructor(origin: Vector, direction: Vector, previousHits: Hit[] = []) {
         this.origin = origin;
         this.direction = direction.direction;
+        this.previousHits = previousHits;
     }
 
     // The position of the ray at a given time.
@@ -288,12 +317,16 @@ class Sphere extends Hittable {
         const c = oc.dot(oc) - this.radius * this.radius;
         const discriminant = b * b - 4 * a * c;
 
-        if (discriminant >= 0) {
-            // XXX: this is only including one hit
-            const t = (-b - Math.sqrt(discriminant)) / (2 * a);
-            const hitPoint = ray.at(t);
-            const normal = hitPoint.sub(this.center).direction;
-            return [new Hit(ray, this, t, normal)];
+        const t1 = (-b + Math.sqrt(discriminant)) / (2 * a);
+        if (discriminant > 0) {
+            const t2 = (-b - Math.sqrt(discriminant)) / (2 * a);
+            return [
+                new Hit(ray, this, t1, ray.at(t1).sub(this.center).direction),
+                new Hit(ray, this, t2, ray.at(t2).sub(this.center).direction)];
+        } else if (discriminant == 0) {
+            // they're the same point -- our ray is perfectly orthogonal
+            return [
+                new Hit(ray, this, t1, ray.at(t1).sub(this.center).direction)];
         }
 
         return [];
@@ -304,4 +337,4 @@ class Sphere extends Hittable {
 const tracer = new RayTracer();
 document.body.appendChild(tracer.display);
 
-setInterval(() => tracer.draw(), 100);
+setInterval(() => tracer.draw(), 30000);
