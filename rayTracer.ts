@@ -39,8 +39,11 @@ class RayTracer {
     }
     
     scene: Hittable[] = [
-        new Sphere(V(200, 10, 500), 300),
-        new Sphere(V(-300, -50, 750), 200)
+        new Sphere(V(200, 100, 500), 300, new Material(new RGB(0.5, 1.0, 0.7))),
+        new Sphere(V(-500, -50, 750), 200, new Material(new RGB(0.3, 0.6, 0.8))),
+
+        // giant red object behind us, which we should never see
+        new Sphere(V(0, -0, -5000), 3000, new Material(new RGB(1.0, 0.0, 0.0))),
     ];
     
     focalPoint: Vector = V(0, 0, -1024);
