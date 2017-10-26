@@ -1,20 +1,18 @@
 "use strict";
 class RayTracer {
     constructor() {
-        this.width = 200;
-        this.height = 100;
+        this.width = 400;
+        this.height = 300;
         this.focalPoint = V(0, 25, -512);
         this.sensorCenter = V(0, 25, 0);
         this.scene = [
-            new Sphere(V(-50, 30, 10), 30, new Material(new RGB(0.5, 1.0, 0.7))),
-            new Sphere(V(50, 50, 20), 50, new Material(new RGB(0.7, 0.5, 0.3))),
-            new Sphere(V(0, -500, 0), 500, new Material(RGB.BLUE)),
-            new Sphere(V(-50, 100, 1000), 100, new Material(RGB.BLACK)),
-            // giant red object behind us, which we should never see
-            new Sphere(V(0, -0, -5000), 3000, new Material(new RGB(1.0, 0.0, 0.0))),
+            new Sphere(V(-50, 30, 10), 30, new Material(RGB.RED)),
+            new Sphere(V(50, 50, 20), 50, new Material(RGB.GREEN)),
+            new Sphere(V(-50, 100, 1000), 100, new Material(RGB.BLUE)),
+            new Sphere(V(0, -1000, 0), 1000, new Material(RGB.BLACK)),
         ];
         // after this many bounces, the ray yields to the background color I guess?
-        this.maxBounces = 4;
+        this.maxBounces = 2;
         this.canvas = document.createElement('canvas');
         this.canvas.width = this.width;
         this.canvas.height = this.height;
@@ -24,6 +22,7 @@ class RayTracer {
         this.draw();
     }
     draw() {
+        this.scene[0].center = this.scene[0].center.add(V(10, 0, 0));
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 const samplesPerPixel = 4;
@@ -57,22 +56,23 @@ class RayTracer {
         const hit = this.getRayHit(ray);
         if (hit) {
             const colors = [];
-            const samplesPerBounce = 4;
+            const samplesPerBounce = 8;
             for (let i = 0; i < samplesPerBounce; i++) {
                 const r = Math.random();
                 if (r < 0.6) {
                     // reflect 40% at original color
-                    colors.push(hit.subject.material.color);
+                    colors.push(RGB.blend([RGB.BLACK, hit.subject.material.color]));
                 }
                 else {
                     // bounce 40% rays on to the next object
-                    colors.push(this.getRayColor(new Ray(hit.location.add(hit.normal).add(Vector.randomUnit()), hit.normal, [hit].concat(ray.previousHits))));
+                    colors.push(this.getRayColor(new Ray(hit.location, hit.location.add(hit.normal).add(Vector.randomUnit()), [hit].concat(ray.previousHits))));
                 }
             }
             return RGB.blend(colors);
         }
         // background, defaulting to a color reflecting the ray's direction.
-        return background || RGB.WHITE;
+        const a = (ray.direction.y + 1 / 2);
+        return background || new RGB(a, 0.3 + a, 0.5 + a * 2);
     }
     getRayHit(ray) {
         if (ray.previousHits.length >= this.maxBounces)
@@ -268,6 +268,6 @@ const tracer = new RayTracer();
 const drawOne = () => {
     document.body.insertBefore(tracer.display.cloneNode(), document.body.firstChild);
     tracer.draw();
-    setTimeout(drawOne, 5000);
+    setTimeout(drawOne, 10 * 1000);
 };
 drawOne();
