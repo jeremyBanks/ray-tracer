@@ -19,9 +19,10 @@ class RayTracer {
         this.draw();
     }
     
+    focalPoint: Vector = V(0, 25, -512);
+    sensorCenter: Vector = V(0, 25, 0);
+    
     draw() {
-        this.focalPoint = V(0, 0, -512);
-
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 const samplesPerPixel = 4;
@@ -43,20 +44,20 @@ class RayTracer {
         this.context.putImageData(this.image, 0, 0);
         const dataUri = this.canvas.toDataURL();
         this.display.src = dataUri;
+        
+        this.focalPoint = this.focalPoint.add(V(0, 5, -10));
+        this.sensorCenter = this.sensorCenter.add(V(0, 5, -10));
     }
     
     scene: Hittable[] = [
         new Sphere(V(-50, 30, 10), 30, new Material(new RGB(0.5, 1.0, 0.7))),
         new Sphere(V(50, 50, 20), 50, new Material(new RGB(0.7, 0.5, 0.3))),
-        new Sphere(V(0, -500, 0), 500, new Material(RGB.WHITE)),
+        new Sphere(V(0, -500, 0), 500, new Material(RGB.BLUE)),
         new Sphere(V(-50, 100, 1000), 100, new Material(RGB.BLACK)),
 
         // giant red object behind us, which we should never see
         new Sphere(V(0, -0, -5000), 3000, new Material(new RGB(1.0, 0.0, 0.0))),
     ];
-    
-    focalPoint: Vector = V(0, 25, -100);
-    sensorCenter: Vector = V(0, 25, 0);
     
     drawSensorPixel(x: number, y: number): RGB {
         const sensorPoint = this.sensorCenter.sub(V(
@@ -73,15 +74,23 @@ class RayTracer {
     getRayColor(ray: Ray, background?: RGB): RGB {
         const hit = this.getRayHit(ray);
         if (hit) {
-            return RGB.blend([
-                new RGB(
-                    hit.subject.material.color.r, hit.subject.material.color.g, hit.subject.material.color.b),
-                this.getRayColor(new Ray(hit.location, hit.normal, [hit].concat(ray.previousHits)), RGB.BLACK)
-            ]);
+            const colors: RGB[] = [];
+            const samplesPerBounce = 4;
+            for (let i = 0; i < samplesPerBounce; i++) {
+                const r = Math.random();
+                if (r < 0.6) {
+                    // reflect 40% at original color
+                    colors.push(hit.subject.material.color);
+                } else {
+                    // bounce 40% rays on to the next object
+                    colors.push(this.getRayColor(new Ray(hit.location.add(hit.normal).add(Vector.randomUnit()), hit.normal, [hit].concat(ray.previousHits))));
+                }
+            }
+            return RGB.blend(colors);
         }
       
         // background, defaulting to a color reflecting the ray's direction.
-        return background || new RGB(ray.direction.x, ray.direction.y, ray.direction.z);
+        return background || RGB.WHITE;
     }
 
     // after this many bounces, the ray yields to the background color I guess?
@@ -341,6 +350,11 @@ class Sphere extends Hittable {
 
 
 const tracer = new RayTracer();
-document.body.appendChild(tracer.display);
+const drawOne = () => {
+    document.body.insertBefore(tracer.display.cloneNode(), document.body.firstChild);
+    tracer.draw();
+    setTimeout(drawOne, 5000);
+};
 
-setInterval(() => tracer.draw(), 30000);
+drawOne();
+
