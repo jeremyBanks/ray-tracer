@@ -1,32 +1,101 @@
-const width = 512, height = 256;
+class RayTracer {
+    width = 512;
+    height = 256;
 
-/** BROWSER/CANVAS OUTPUT */
-const canvas = document.createElement('canvas');
-canvas.width = width;
-canvas.height = height;
-const context = canvas.getContext('2d') as CanvasRenderingContext2D;
-const image = context.createImageData(width, height);
+    canvas: HTMLCanvasElement;
+    context: CanvasRenderingContext2D;
+    image: ImageData;
+    display: HTMLImageElement;
 
-const display = document.createElement('img');
-document.body.appendChild(display);
+    constructor() {
+        this.canvas = document.createElement('canvas');
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+        this.context = this.canvas.getContext('2d') as CanvasRenderingContext2D;
+        this.image = this.context.createImageData(this.width, this.height);
 
-const blit = () => {
-    context.putImageData(image, 0, 0);
-    const dataUri = canvas.toDataURL();
-    display.src = dataUri;
-};
+        this.display = document.createElement('img');
 
-/** COLOR! */
+        this.draw();
+    }
+    
+    draw() {
+        this.focalPoint = V(0, 0, -512);
+        this.sensorCenter = this.sensorCenter.add(V(Math.random() * 64 - 32, 0, 0));
+
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                const pixel = this.drawPixel(x, y);
+                const offset = (y * this.width + x) * 4;
+                this.image.data[offset + 0] = pixel.pow(0.45).r8;
+                this.image.data[offset + 1] = pixel.pow(0.45).g8;
+                this.image.data[offset + 2] = pixel.pow(0.45).b8;
+                this.image.data[offset + 3] = 0xFF;
+            }
+        }
+        this.context.putImageData(this.image, 0, 0);
+        const dataUri = this.canvas.toDataURL();
+        this.display.src = dataUri;
+    }
+    
+    scene: Hittable[] = [
+        new Sphere(V(200, 10, 500), 300),
+        new Sphere(V(-300, -50, 750), 200)
+    ];
+    
+    focalPoint: Vector = V(0, 0, -1024);
+    sensorCenter: Vector = V(0, 0, 0);
+    
+    drawPixel(x: number, y: number): RGB {
+        const sensorPoint = this.sensorCenter.sub(V(
+            -(this.width - 1) / 2 + x,
+            -(this.height - 1) / 2 + y
+        ));
+  
+      // a ray projecting out from the sensor, away from the focal point
+      const ray = new Ray(sensorPoint, sensorPoint.sub(this.focalPoint).direction);
+
+      const hits: Hit[] = [];
+      for (const hittable of this.scene) {
+          hits.push(...hittable.hits(ray));
+      }
+      hits.sort((a, b) => a.t - b.t);
+      const firstHit = hits[0] || null;
+      if (firstHit) {
+          return firstHit.subject.material.color;
+      }
+      
+      // background, if we draw nothing else, draw a color reflecting the ray's direction.
+      return new RGB(ray.direction.x, ray.direction.y, ray.direction.z);
+    }
+}
+
+/** RGB float color. */
 class RGB {
     r: number;
     g: number;
     b: number;
 
     constructor(r: number, g: number, b: number) {
-        this.r = Math.min(0xFF, Math.max(0, r)) & 0xFF;
-        this.g = Math.min(0xFF, Math.max(0, g)) & 0xFF;
-        this.b = Math.min(0xFF, Math.max(0, b)) & 0xFF;
+        this.r = Math.min(1.0, Math.max(0.0, r));
+        this.g = Math.min(1.0, Math.max(0.0, g));
+        this.b = Math.min(1.0, Math.max(0.0, b));
     }
+    
+    // 8-bit integer values for each channel
+    get r8() { return 0xFF & (this.r * 0xFF); }
+    get g8() { return 0xFF & (this.g * 0xFF); }
+    get b8() { return 0xFF & (this.b * 0xFF); }
+
+    pow(exponent: number) {
+        return new RGB(
+            Math.pow(this.r, exponent),
+            Math.pow(this.g, exponent),
+            Math.pow(this.b, exponent));
+    }
+
+    static BLACK = new RGB(0.0, 0.0, 0.0);
+    static WHITE = new RGB(1.0, 1.0, 1.0);
 }
 
 
@@ -37,59 +106,85 @@ class Vector {
     z: number;
   
     constructor(x: number = 0, y: number = 0, z: number = 0) {
-        if (x === 0 && y === 0 && z === 0 && Vector.ZERO) return Vector.ZERO;
+        if (Vector.ZERO && Object.is(x, +0) && Object.is(y, +0) && Object.is(z, +0)) return Vector.ZERO;
         
         this.x = x;
         this.y = y;
         this.z = z;
   
-        // Vectors are immutable for sanity.
+        // Vectors are immutable for sanity and optimization.
         Object.freeze(this);
     }
-  
-    add(other: Vector): Vector {
-      if (this === Vector.ZERO) return other;
-      if (other === Vector.ZERO) return this;
-  
-      return new Vector(this.x + other.x, this.y + other.y, this.z + other.z);
-    }
-    
-    sub(other: Vector): Vector {
-      if (other === Vector.ZERO) return this;
-      if (other === this) return Vector.ZERO;
-  
-      return new Vector(this.x - other.x, this.y - other.y, this.z - other.z);
-    }
-    
+
+    // scalar/absolute magnitude
     get magnitude(): number {
-      return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+        return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+    }
+
+    // directionally-equivalent unit or zero vector
+    get direction(): Vector {
+        if (this.magnitude === 0 || this.magnitude === 1) return this;
+    
+        return this.scale(1 / this.magnitude);
+    }
+
+    // negation
+    get negative(): Vector {
+        if (this === Vector.ZERO) return this;
+
+        return new Vector(-this.x, -this.y, -this.z);
+    }
+  
+    // addition
+    add(other: Vector): Vector {
+        if (this === Vector.ZERO) return other;
+        if (other === Vector.ZERO) return this;
+    
+        return new Vector(this.x + other.x, this.y + other.y, this.z + other.z);
     }
     
-    scale(factor: number): Vector {
-      if (factor === 0) return Vector.ZERO;
-      if (factor === 1) return this;
-  
-      return new Vector(this.x * factor, this.y * factor, this.z * factor);
+    // subtraction
+    sub(other: Vector): Vector {
+        if (other === Vector.ZERO) return this;
+        if (other === this) return Vector.ZERO;
+    
+        return new Vector(this.x - other.x, this.y - other.y, this.z - other.z);
     }
-  
-    get direction(): Vector {
-      if (this.magnitude === 0 || this.magnitude === 1) return this;
-      
-      return this.scale(1 / this.magnitude);
+    
+    // scale/multiply
+    scale(factor: number): Vector {
+        if (factor === 0) return Vector.ZERO;
+        if (factor === 1) return this;
+    
+        return new Vector(this.x * factor, this.y * factor, this.z * factor);
+    }
+
+    // dot product (scalar product of parallelism :P)
+    dot(other: Vector): number {
+        return this.x * other.x + this.y * other.y + this.z * other.z;
+    }
+
+    // cross product (result perpendicular to both operands)
+    cross(other: Vector): Vector {
+        return new Vector(
+            this.y * other.z - this.z * other.y,
+            -this.x * other.z - this.z * other.x,
+            this.x * other.y - this.y * other.x); 
     }
   
     // a random unit-length vector
     static randomUnit(): Vector {
-      // rejection method to avoid bias towards corners
-      while (true) {
-        const p = new Vector(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
-        if (p.magnitude <= 0.5 && p.magnitude > 0) {
-          return p.direction;
+        // we generate points within a cube but reject those that fall outside of a sphere
+        // to avoid bias towards corner directions.
+        while (true) {
+            const p = new Vector(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
+            if (p.magnitude <= 0.5 && p.magnitude > 0) {
+              return p.direction;
+            }
         }
-      }
     }
     
-    static ZERO = new Vector();
+    static ZERO = new Vector(+0, +0, +0);
     static X = new Vector(1, 0, 0);
     static Y = new Vector(0, 1, 0);
     static Z = new Vector(0, 0, 1);
@@ -97,7 +192,7 @@ class Vector {
 
 const V = (x: number = 0, y: number = 0, z: number = 0): Vector => new Vector(x, y, z);
 
-/** A ray proceeding from a point in a constant direction at one of distance per unit of time. */
+/** A ray proceeding from a point in a constant direction at one unit distance per one unit time. */
 class Ray {
     origin: Vector;
     direction: Vector;
@@ -107,35 +202,56 @@ class Ray {
         this.direction = direction.direction;
     }
 
+    // The position of the ray at a given time.
     at(t: number): Vector {
         return this.origin.add(this.direction.scale(t));
     }
 }
 
+
 /** An object our rays can hit. */
 abstract class Hittable {
     material: Material;
 
-    hits(ray: Ray): Hit[] {
-        return this.allHits(ray).filter(hit => hit.t > 0 && hit.exterior).sort((a, b) => a.t - b.t);
+    hit(ray: Ray): Hit | null {
+        return this.hits(ray)[0] || null;
     }
 
+    // hits on this ray that occur in the future (and so will will be drawn).
+    hits(ray: Ray): Hit[] {
+        return this.allHits(ray).filter(hit => hit.t > 0).sort((a, b) => a.t - b.t);
+    }
+
+    // all hits on this ray, potentially including ones that occur backwards/in the past
     allHits(ray: Ray): Hit[] {
         return this.hits(ray);
     }
 }
 
+
 /** A material a Hittable can be made of, determining how it's rendered. */
-abstract class Material {
+class Material {
     color: RGB;
+
+    constructor(color: RGB) {
+        this.color = color;
+    }
+
+    static VOID = new Material(RGB.BLACK);
 }
+
 
 /** Information about a particular hit of a Ray into a Hittable. */
 class Hit {
     ray: Ray;
     subject: Hittable;
     t: number;
-    exterior: boolean;
+
+    constructor(ray: Ray, subject: Hittable, t: number) {
+        this.ray = ray;
+        this.subject = subject;
+        this.t = t;
+    }
 }
 
 
@@ -143,59 +259,30 @@ class Sphere extends Hittable {
     center: Vector;
     radius: number;
 
-    // TODO
-}
-
-/** main app loop */
-class RayTracer {
-    constructor() {
-      this.draw();
+    constructor(center: Vector, radius: number, material: Material = Material.VOID) {
+        super();
+        this.center = center;
+        this.radius = radius;
+        this.material = material;
     }
-    
-    draw() {
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const pixel = this.drawPixel(x, y);
-          const offset = (y * width + x) * 4;
-          image.data[offset + 0] = pixel.r;
-          image.data[offset + 1] = pixel.g;
-          image.data[offset + 2] = pixel.b;
-          image.data[offset + 3] = 0xFF;
+
+    allHits(ray: Ray): Hit[] {
+        const oc = ray.origin.sub(this.center);
+        const a = ray.direction.dot(ray.direction);
+        const b = 2.0 * oc.dot(ray.direction);
+        const c = oc.dot(oc) - this.radius * this.radius;
+        const discriminant = b * b - 4 * a * c;
+
+        if (discriminant >= 0) {
+            return [new Hit(ray, this, 42)];
         }
-      }
 
-      blit();
-    }
-    
-    objects: {position: Vector, color: RGB}[] = [
-      {
-        position: V(0, 0, 5),
-        color: new RGB(0x00, 0xFF, 0x80),
-      }
-    ];
-    
-    sensorWidth: number = width;
-    sensorHeight: number = height;
-    focalPoint: Vector = V(0, 0, -1024);
-    sensorCenter: Vector = V(0, 0, 0);
-    
-    drawPixel(x: number, y: number): RGB {
-      const sensorPoint = this.sensorCenter.sub(V(-(width - 1) / 2 + x, -(height - 1) / 2 + y));
-  
-      // a ray projecting out from the sensor, away from the focal point
-      const ray = new Ray(sensorPoint, sensorPoint.sub(this.focalPoint).direction);
-      
-  
-      // background, if we draw nothing else
-      // we should update this to reflect the distance to the horizon at different angles
-      const altitude = (height - 1 - y) / (height - 1);
-      const h = Math.floor(x / 16) % 2 ^ Math.floor(y / 16) % 2;
-      const nh = 1 - h;
-      return new RGB(
-        0xFF * (0.9 - 0.3 * altitude) * nh,
-        0xFF * (0.0 + 1.2 * altitude) * h,
-        0xFF * (0.5 + 0.8 * altitude) * h);
+        return [];
     }
 }
 
-new RayTracer();
+
+const tracer = new RayTracer();
+document.body.appendChild(tracer.display);
+
+setInterval(() => tracer.draw(), 1000);
