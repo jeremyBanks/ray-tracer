@@ -41,7 +41,7 @@ class RayTracer {
 
         for (const [x, y] of indexPairs) {
             const now = Date.now();
-            if (now - lastTime > 250) {
+            if (now - lastTime > 1000 / 32) {
                 this.context.putImageData(this.image, 0, 0);
                 await new Promise(r => setTimeout(r));
                 lastTime = now;
@@ -62,48 +62,58 @@ class RayTracer {
             this.image.data[offset + 2] = pixel.b8;
             this.image.data[offset + 3] = 0xFF;
 
-            for (let yp = y + 1; yp  < this.height; yp++) {
-                const offset = (yp * this.width + x) * 4;
-                const a = (0xFF * 8) / (8 + Math.abs(yp - y));
-                if (this.image.data[offset + 3] > a) break;
+            switch (Math.floor(Math.random() * 4)) {
+                case 0:
+                    for (let yp = y + 1; yp  < this.height; yp++) {
+                        const offset = (yp * this.width + x) * 4;
+                        const a = (0xFF * 8) / (8 + Math.abs(yp - y));
+                        if (this.image.data[offset + 3] > a) break;
 
-                this.image.data[offset + 0] = pixel.r8;
-                this.image.data[offset + 1] = pixel.g8;
-                this.image.data[offset + 2] = pixel.b8;
-                this.image.data[offset + 3] = a;
-            }
-            
-            for (let yp = y - 1; yp >= 0; yp--) {
-                const offset = (yp * this.width + x) * 4;
-                const a = (0xFF * 8) / (8 + Math.abs(yp - y));
-                if (this.image.data[offset + 3] > a) break;
+                        this.image.data[offset + 0] = pixel.r8;
+                        this.image.data[offset + 1] = pixel.g8;
+                        this.image.data[offset + 2] = pixel.b8;
+                        this.image.data[offset + 3] = a;
+                    }
+                break;
+                
+                case 1:
+                    for (let yp = y - 1; yp >= 0; yp--) {
+                        const offset = (yp * this.width + x) * 4;
+                        const a = (0xFF * 8) / (8 + Math.abs(yp - y));
+                        if (this.image.data[offset + 3] > a) break;
 
-                this.image.data[offset + 0] = pixel.r8;
-                this.image.data[offset + 1] = pixel.g8;
-                this.image.data[offset + 2] = pixel.b8;
-                this.image.data[offset + 3] = a;
-            }
+                        this.image.data[offset + 0] = pixel.r8;
+                        this.image.data[offset + 1] = pixel.g8;
+                        this.image.data[offset + 2] = pixel.b8;
+                        this.image.data[offset + 3] = a;
+                    }
+                    break;
 
-            for (let xp = x + 1; xp  < this.width; xp++) {
-                const offset = (y * this.width + xp) * 4;
-                const a = (0xFF * 8) / (8 + Math.abs(xp - x));
-                if (this.image.data[offset + 3] > a) break;
+                case 2:
+                    for (let xp = x + 1; xp  < this.width; xp++) {
+                        const offset = (y * this.width + xp) * 4;
+                        const a = (0xFF * 8) / (8 + Math.abs(xp - x));
+                        if (this.image.data[offset + 3] > a) break;
 
-                this.image.data[offset + 0] = pixel.r8;
-                this.image.data[offset + 1] = pixel.g8;
-                this.image.data[offset + 2] = pixel.b8;
-                this.image.data[offset + 3] = a;
-            }
-            
-            for (let xp = x - 1; xp >= 0; xp--) {
-                const offset = (y * this.width + xp) * 4;
-                const a = (0xFF * 8) / (8 + Math.abs(xp - x));
-                if (this.image.data[offset + 3] > a) break; 
+                        this.image.data[offset + 0] = pixel.r8;
+                        this.image.data[offset + 1] = pixel.g8;
+                        this.image.data[offset + 2] = pixel.b8;
+                        this.image.data[offset + 3] = a;
+                    }
+                break;
 
-                this.image.data[offset + 0] = pixel.r8;
-                this.image.data[offset + 1] = pixel.g8;
-                this.image.data[offset + 2] = pixel.b8;
-                this.image.data[offset + 3] = a;
+                case 3:
+                    for (let xp = x - 1; xp >= 0; xp--) {
+                        const offset = (y * this.width + xp) * 4;
+                        const a = (0xFF * 8) / (8 + Math.abs(xp - x));
+                        if (this.image.data[offset + 3] > a) break; 
+
+                        this.image.data[offset + 0] = pixel.r8;
+                        this.image.data[offset + 1] = pixel.g8;
+                        this.image.data[offset + 2] = pixel.b8;
+                        this.image.data[offset + 3] = a;
+                    }
+                break;
             }
         }
         this.context.putImageData(this.image, 0, 0);
