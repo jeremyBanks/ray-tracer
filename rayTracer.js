@@ -1,4 +1,30 @@
 "use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+const memoize = (target, propertyKey, descriptor) => {
+    const memory = new WeakMap();
+    if (descriptor.get) {
+        const getter = descriptor.get;
+        descriptor.get = function () {
+            const cached = memory.get(this);
+            if (cached)
+                return cached;
+            const computed = getter.call(this);
+            memory.set(this, computed);
+            return computed;
+        };
+    }
+    else {
+        throw new Error('@memoize only supports getters');
+    }
+};
 class RayTracer {
     constructor() {
         this.width = 400;
@@ -24,88 +50,27 @@ class RayTracer {
     }
     async draw() {
         let lastTime = Date.now();
-        const indexPairs = [];
         for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                indexPairs.push([x, y]);
-            }
-        }
-        function shuffle(a) {
-            for (let i = a.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [a[i], a[j]] = [a[j], a[i]];
-            }
-        }
-        shuffle(indexPairs);
-        for (const [x, y] of indexPairs) {
             const now = Date.now();
-            if (now - lastTime > 1000 / 32) {
+            if (now - lastTime > 250) {
                 this.context.putImageData(this.image, 0, 0);
                 await new Promise(r => setTimeout(r));
                 lastTime = now;
             }
-            const samplesPerPixel = 4;
-            const colors = [];
-            for (let i = 0; i < samplesPerPixel; i++) {
-                const dx = Math.random() - 0.5;
-                const dy = Math.random() - 0.5;
-                colors.push(this.drawSensorPixel(x + dx, y + dy));
-            }
-            const pixel = RGB.blend(colors).pow(0.45);
-            const offset = (y * this.width + x) * 4;
-            this.image.data[offset + 0] = pixel.r8;
-            this.image.data[offset + 1] = pixel.g8;
-            this.image.data[offset + 2] = pixel.b8;
-            this.image.data[offset + 3] = 0xFF;
-            switch (Math.floor(Math.random() * 4)) {
-                case 0:
-                    for (let yp = y + 1; yp < this.height; yp++) {
-                        const offset = (yp * this.width + x) * 4;
-                        const a = (0xFF * 8) / (8 + Math.abs(yp - y));
-                        if (this.image.data[offset + 3] > a)
-                            break;
-                        this.image.data[offset + 0] = pixel.r8;
-                        this.image.data[offset + 1] = pixel.g8;
-                        this.image.data[offset + 2] = pixel.b8;
-                        this.image.data[offset + 3] = a;
-                    }
-                    break;
-                case 1:
-                    for (let yp = y - 1; yp >= 0; yp--) {
-                        const offset = (yp * this.width + x) * 4;
-                        const a = (0xFF * 8) / (8 + Math.abs(yp - y));
-                        if (this.image.data[offset + 3] > a)
-                            break;
-                        this.image.data[offset + 0] = pixel.r8;
-                        this.image.data[offset + 1] = pixel.g8;
-                        this.image.data[offset + 2] = pixel.b8;
-                        this.image.data[offset + 3] = a;
-                    }
-                    break;
-                case 2:
-                    for (let xp = x + 1; xp < this.width; xp++) {
-                        const offset = (y * this.width + xp) * 4;
-                        const a = (0xFF * 8) / (8 + Math.abs(xp - x));
-                        if (this.image.data[offset + 3] > a)
-                            break;
-                        this.image.data[offset + 0] = pixel.r8;
-                        this.image.data[offset + 1] = pixel.g8;
-                        this.image.data[offset + 2] = pixel.b8;
-                        this.image.data[offset + 3] = a;
-                    }
-                    break;
-                case 3:
-                    for (let xp = x - 1; xp >= 0; xp--) {
-                        const offset = (y * this.width + xp) * 4;
-                        const a = (0xFF * 8) / (8 + Math.abs(xp - x));
-                        if (this.image.data[offset + 3] > a)
-                            break;
-                        this.image.data[offset + 0] = pixel.r8;
-                        this.image.data[offset + 1] = pixel.g8;
-                        this.image.data[offset + 2] = pixel.b8;
-                        this.image.data[offset + 3] = a;
-                    }
-                    break;
+            for (let x = 0; x < this.width; x++) {
+                const samplesPerPixel = 4;
+                const colors = [];
+                for (let i = 0; i < samplesPerPixel; i++) {
+                    const dx = Math.random() - 0.5;
+                    const dy = Math.random() - 0.5;
+                    colors.push(this.drawSensorPixel(x + dx, y + dy));
+                }
+                const pixel = RGB.blend(colors).pow(0.45);
+                const offset = (y * this.width + x) * 4;
+                this.image.data[offset + 0] = pixel.r8;
+                this.image.data[offset + 1] = pixel.g8;
+                this.image.data[offset + 2] = pixel.b8;
+                this.image.data[offset + 3] = 0xFF;
             }
         }
         this.context.putImageData(this.image, 0, 0);
@@ -252,6 +217,21 @@ Vector.ZERO = new Vector(+0, +0, +0);
 Vector.X = new Vector(1, 0, 0);
 Vector.Y = new Vector(0, 1, 0);
 Vector.Z = new Vector(0, 0, 1);
+__decorate([
+    memoize,
+    __metadata("design:type", Number),
+    __metadata("design:paramtypes", [])
+], Vector.prototype, "magnitude", null);
+__decorate([
+    memoize,
+    __metadata("design:type", Vector),
+    __metadata("design:paramtypes", [])
+], Vector.prototype, "direction", null);
+__decorate([
+    memoize,
+    __metadata("design:type", Vector),
+    __metadata("design:paramtypes", [])
+], Vector.prototype, "negative", null);
 ;
 const V = (x = 0, y = 0, z = 0) => new Vector(x, y, z);
 /** A ray proceeding from a point in a constant direction at one unit distance per one unit time. */

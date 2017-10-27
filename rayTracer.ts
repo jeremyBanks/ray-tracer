@@ -1,3 +1,19 @@
+const memoize = <T>(target: Object, propertyKey: string, descriptor: TypedPropertyDescriptor<T>): void => {
+    const memory: WeakMap<Object, T> = new WeakMap();
+    if (descriptor.get) {
+        const getter = descriptor.get;
+        descriptor.get = function() {
+            const cached = memory.get(this);
+            if (cached) return cached;
+            const computed = getter.call(this);
+            memory.set(this, computed);
+            return computed;
+        };
+    } else {
+        throw new Error('@memoize only supports getters');
+    }
+};
+
 class RayTracer {
     width = 400;
     height = 300;
@@ -25,95 +41,29 @@ class RayTracer {
     async draw() {
         let lastTime = Date.now();
 
-        const indexPairs: [number, number][] = [];
         for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                indexPairs.push([x, y]);
-            }
-        }
-        function shuffle(a: any[]) {
-            for (let i = a.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [a[i], a[j]] = [a[j], a[i]];
-            }
-        }
-        shuffle(indexPairs);
-
-        for (const [x, y] of indexPairs) {
             const now = Date.now();
-            if (now - lastTime > 1000 / 32) {
+            if (now - lastTime > 250) {
                 this.context.putImageData(this.image, 0, 0);
                 await new Promise(r => setTimeout(r));
                 lastTime = now;
             }
 
-            const samplesPerPixel = 4;
-            const colors: RGB[] = [];
-            for (let i = 0; i < samplesPerPixel; i++) {
-                const dx = Math.random() - 0.5;
-                const dy = Math.random() - 0.5;
-                colors.push(this.drawSensorPixel(x + dx, y + dy));
-            }
-            const pixel = RGB.blend(colors).pow(0.45);
+            for (let x = 0; x < this.width; x++) {
+                const samplesPerPixel = 4;
+                const colors: RGB[] = [];
+                for (let i = 0; i < samplesPerPixel; i++) {
+                    const dx = Math.random() - 0.5;
+                    const dy = Math.random() - 0.5;
+                    colors.push(this.drawSensorPixel(x + dx, y + dy));
+                }
+                const pixel = RGB.blend(colors).pow(0.45);
 
-            const offset = (y * this.width + x) * 4;
-            this.image.data[offset + 0] = pixel.r8;
-            this.image.data[offset + 1] = pixel.g8;
-            this.image.data[offset + 2] = pixel.b8;
-            this.image.data[offset + 3] = 0xFF;
-
-            switch (Math.floor(Math.random() * 4)) {
-                case 0:
-                    for (let yp = y + 1; yp  < this.height; yp++) {
-                        const offset = (yp * this.width + x) * 4;
-                        const a = (0xFF * 8) / (8 + Math.abs(yp - y));
-                        if (this.image.data[offset + 3] > a) break;
-
-                        this.image.data[offset + 0] = pixel.r8;
-                        this.image.data[offset + 1] = pixel.g8;
-                        this.image.data[offset + 2] = pixel.b8;
-                        this.image.data[offset + 3] = a;
-                    }
-                break;
-                
-                case 1:
-                    for (let yp = y - 1; yp >= 0; yp--) {
-                        const offset = (yp * this.width + x) * 4;
-                        const a = (0xFF * 8) / (8 + Math.abs(yp - y));
-                        if (this.image.data[offset + 3] > a) break;
-
-                        this.image.data[offset + 0] = pixel.r8;
-                        this.image.data[offset + 1] = pixel.g8;
-                        this.image.data[offset + 2] = pixel.b8;
-                        this.image.data[offset + 3] = a;
-                    }
-                    break;
-
-                case 2:
-                    for (let xp = x + 1; xp  < this.width; xp++) {
-                        const offset = (y * this.width + xp) * 4;
-                        const a = (0xFF * 8) / (8 + Math.abs(xp - x));
-                        if (this.image.data[offset + 3] > a) break;
-
-                        this.image.data[offset + 0] = pixel.r8;
-                        this.image.data[offset + 1] = pixel.g8;
-                        this.image.data[offset + 2] = pixel.b8;
-                        this.image.data[offset + 3] = a;
-                    }
-                break;
-
-                case 3:
-                    for (let xp = x - 1; xp >= 0; xp--) {
-                        const offset = (y * this.width + xp) * 4;
-                        const a = (0xFF * 8) / (8 + Math.abs(xp - x));
-                        if (this.image.data[offset + 3] > a) break; 
-
-                        this.image.data[offset + 0] = pixel.r8;
-                        this.image.data[offset + 1] = pixel.g8;
-                        this.image.data[offset + 2] = pixel.b8;
-                        this.image.data[offset + 3] = a;
-                    }
-                break;
+                const offset = (y * this.width + x) * 4;
+                this.image.data[offset + 0] = pixel.r8;
+                this.image.data[offset + 1] = pixel.g8;
+                this.image.data[offset + 2] = pixel.b8;
+                this.image.data[offset + 3] = 0xFF;
             }
         }
         this.context.putImageData(this.image, 0, 0);
@@ -239,11 +189,13 @@ class Vector {
     }
 
     // scalar/absolute magnitude
+    @memoize
     get magnitude(): number {
         return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
     }
 
     // directionally-equivalent unit or zero vector
+    @memoize
     get direction(): Vector {
         if (this.magnitude === 0 || this.magnitude === 1) return this;
     
@@ -251,6 +203,7 @@ class Vector {
     }
 
     // negation
+    @memoize
     get negative(): Vector {
         if (this === Vector.ZERO) return this;
 
