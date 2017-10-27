@@ -24,16 +24,15 @@ class RayTracer {
     
     async draw() {
         let lastTime = Date.now();
-        const ys = shuffleArray(new Array(this.height).fill(null).map((x, i) => i));
-
-        
-        function shuffleArray(array: any[]) {
+        const ys = notReallyAShuffle(new Array(this.height).fill(null).map((x, i) => i));
+        function notReallyAShuffle(array: any[]) {
             for (var i = array.length - 1; i > 0; i--) {
-                var j = Math.floor(Math.random() * (i + 1));
+                var j = Math.floor(Math.random() * (i + 1) / 64) * 64 + i % 64;
                 [array[i], array[j]] = [array[j], array[i]];
             }
             return array;
         }
+        console.log(ys);
         for (const y of ys) {
             const now = Date.now();
             if (now - lastTime > 250) {
@@ -58,17 +57,26 @@ class RayTracer {
                 this.image.data[offset + 2] = pixel.b8;
                 this.image.data[offset + 3] = 0xFF;
 
-                for (let i = 1; i < 16; i++) {
-                    const dy = (i % 2) ? (i + 1) / 2 : -(i / 2)
-                    if (y + dy < 0 || y + dy > this.height) break;
-
-                    const offset = ((y + dy) * this.width + x) * 4;
-                    if (this.image.data[offset + 3] === 0xFF) break;
+                for (let yp = y + 1; yp  < this.height; yp++) {
+                    const offset = (yp * this.width + x) * 4;
+                    const a = (0xFF * 32) / (32 + Math.abs(yp - y));
+                    if (this.image.data[offset + 3] > a) break;
 
                     this.image.data[offset + 0] = pixel.r8;
                     this.image.data[offset + 1] = pixel.g8;
                     this.image.data[offset + 2] = pixel.b8;
-                    this.image.data[offset + 3] = (2 * this.image.data[offset + 3] + 0xFF) / 3;
+                    this.image.data[offset + 3] = a;
+                }
+                
+                for (let yp = y - 1; yp >= 0; yp--) {
+                    const offset = (yp * this.width + x) * 4;
+                    const a = (0xFF * 32) / (32 + Math.abs(yp - y));
+                    if (this.image.data[offset + 3] > a) break;
+
+                    this.image.data[offset + 0] = pixel.r8;
+                    this.image.data[offset + 1] = pixel.g8;
+                    this.image.data[offset + 2] = pixel.b8;
+                    this.image.data[offset + 3] = a;
                 }
             }
         }
@@ -84,9 +92,9 @@ class RayTracer {
     
     scene: Hittable[] = [
         new Sphere(V(-50, 30, 10), 30, new Material(RGB.RED)),
-        new Sphere(V(50, 50, 20), 50, new Material(RGB.GREEN)),
-        new Sphere(V(-50, 100, 1000), 100, new Material(RGB.BLUE)),
-        new Sphere(V(0, -1050, 0), 1000, new Material(RGB.BLACK)),
+        new Sphere(V(150, 50, 20), 50, new Material(RGB.GREEN)),
+        new Sphere(V(75, 100, 1000), 100, new Material(RGB.BLUE)),
+        new Sphere(V(0, -1050, 250), 1000, new Material(RGB.BLACK)),
         new Sphere(V(-300, 500, 400), 400, new Material(RGB.BLACK)),
     ];
     
