@@ -19,12 +19,22 @@ class RayTracer {
         this.draw();
     }
     
-    focalPoint: Vector = V(0, 25, -512);
-    sensorCenter: Vector = V(0, 25, 0);
+    focalPoint: Vector = V(0, 75, -512);
+    sensorCenter: Vector = V(0, 75, 0);
     
     async draw() {
         let lastTime = Date.now();
-        for (let y = 0; y < this.height; y++) {
+        const ys = shuffleArray(new Array(this.height).fill(null).map((x, i) => i));
+
+        
+        function shuffleArray(array: any[]) {
+            for (var i = array.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+        for (const y of ys) {
             const now = Date.now();
             if (now - lastTime > 250) {
                 this.context.putImageData(this.image, 0, 0);
@@ -47,6 +57,19 @@ class RayTracer {
                 this.image.data[offset + 1] = pixel.g8;
                 this.image.data[offset + 2] = pixel.b8;
                 this.image.data[offset + 3] = 0xFF;
+
+                for (let i = 1; i < 16; i++) {
+                    const dy = (i % 2) ? (i + 1) / 2 : -(i / 2)
+                    if (y + dy < 0 || y + dy > this.height) break;
+
+                    const offset = ((y + dy) * this.width + x) * 4;
+                    if (this.image.data[offset + 3] === 0xFF) break;
+
+                    this.image.data[offset + 0] = pixel.r8;
+                    this.image.data[offset + 1] = pixel.g8;
+                    this.image.data[offset + 2] = pixel.b8;
+                    this.image.data[offset + 3] = (2 * this.image.data[offset + 3] + 0xFF) / 3;
+                }
             }
         }
         this.context.putImageData(this.image, 0, 0);
@@ -63,7 +86,8 @@ class RayTracer {
         new Sphere(V(-50, 30, 10), 30, new Material(RGB.RED)),
         new Sphere(V(50, 50, 20), 50, new Material(RGB.GREEN)),
         new Sphere(V(-50, 100, 1000), 100, new Material(RGB.BLUE)),
-        new Sphere(V(0, -1000, 0), 1000, new Material(RGB.BLACK)),
+        new Sphere(V(0, -1050, 0), 1000, new Material(RGB.BLACK)),
+        new Sphere(V(-300, 500, 400), 400, new Material(RGB.BLACK)),
     ];
     
     drawSensorPixel(x: number, y: number): RGB {
@@ -92,7 +116,7 @@ class RayTracer {
         }
       
         // background, defaulting to a color reflecting the ray's direction.
-        const a = (ray.direction.y + 1 / 2);
+        const a = Math.pow(ray.direction.y + 1 / 2, 2);
         return background || new RGB(a, 0.3 + a, 0.5 + a * 2);
     }
 
