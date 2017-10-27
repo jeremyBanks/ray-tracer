@@ -24,16 +24,22 @@ class RayTracer {
     
     async draw() {
         let lastTime = Date.now();
-        const ys = notReallyAShuffle(new Array(this.height).fill(null).map((x, i) => i));
-        function notReallyAShuffle(array: any[]) {
-            for (var i = array.length - 1; i > 0; i--) {
-                var j = Math.floor(Math.random() * (i + 1) / 64) * 64 + i % 64;
-                [array[i], array[j]] = [array[j], array[i]];
+
+        const indexPairs: [number, number][] = [];
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                indexPairs.push([x, y]);
             }
-            return array;
         }
-        console.log(ys);
-        for (const y of ys) {
+        function shuffle(a: any[]) {
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+        }
+        shuffle(indexPairs);
+
+        for (const [x, y] of indexPairs) {
             const now = Date.now();
             if (now - lastTime > 250) {
                 this.context.putImageData(this.image, 0, 0);
@@ -41,43 +47,63 @@ class RayTracer {
                 lastTime = now;
             }
 
-            for (let x = 0; x < this.width; x++) {
-                const samplesPerPixel = 4;
-                const colors: RGB[] = [];
-                for (let i = 0; i < samplesPerPixel; i++) {
-                    const dx = Math.random() - 0.5;
-                    const dy = Math.random() - 0.5;
-                    colors.push(this.drawSensorPixel(x + dx, y + dy));
-                }
-                const pixel = RGB.blend(colors).pow(0.45);
+            const samplesPerPixel = 4;
+            const colors: RGB[] = [];
+            for (let i = 0; i < samplesPerPixel; i++) {
+                const dx = Math.random() - 0.5;
+                const dy = Math.random() - 0.5;
+                colors.push(this.drawSensorPixel(x + dx, y + dy));
+            }
+            const pixel = RGB.blend(colors).pow(0.45);
 
-                const offset = (y * this.width + x) * 4;
+            const offset = (y * this.width + x) * 4;
+            this.image.data[offset + 0] = pixel.r8;
+            this.image.data[offset + 1] = pixel.g8;
+            this.image.data[offset + 2] = pixel.b8;
+            this.image.data[offset + 3] = 0xFF;
+
+            for (let yp = y + 1; yp  < this.height; yp++) {
+                const offset = (yp * this.width + x) * 4;
+                const a = (0xFF * 8) / (8 + Math.abs(yp - y));
+                if (this.image.data[offset + 3] > a) break;
+
                 this.image.data[offset + 0] = pixel.r8;
                 this.image.data[offset + 1] = pixel.g8;
                 this.image.data[offset + 2] = pixel.b8;
-                this.image.data[offset + 3] = 0xFF;
+                this.image.data[offset + 3] = a;
+            }
+            
+            for (let yp = y - 1; yp >= 0; yp--) {
+                const offset = (yp * this.width + x) * 4;
+                const a = (0xFF * 8) / (8 + Math.abs(yp - y));
+                if (this.image.data[offset + 3] > a) break;
 
-                for (let yp = y + 1; yp  < this.height; yp++) {
-                    const offset = (yp * this.width + x) * 4;
-                    const a = (0xFF * 32) / (32 + Math.abs(yp - y));
-                    if (this.image.data[offset + 3] > a) break;
+                this.image.data[offset + 0] = pixel.r8;
+                this.image.data[offset + 1] = pixel.g8;
+                this.image.data[offset + 2] = pixel.b8;
+                this.image.data[offset + 3] = a;
+            }
 
-                    this.image.data[offset + 0] = pixel.r8;
-                    this.image.data[offset + 1] = pixel.g8;
-                    this.image.data[offset + 2] = pixel.b8;
-                    this.image.data[offset + 3] = a;
-                }
-                
-                for (let yp = y - 1; yp >= 0; yp--) {
-                    const offset = (yp * this.width + x) * 4;
-                    const a = (0xFF * 32) / (32 + Math.abs(yp - y));
-                    if (this.image.data[offset + 3] > a) break;
+            for (let xp = x + 1; xp  < this.width; xp++) {
+                const offset = (y * this.width + xp) * 4;
+                const a = (0xFF * 8) / (8 + Math.abs(xp - x));
+                if (this.image.data[offset + 3] > a) break;
 
-                    this.image.data[offset + 0] = pixel.r8;
-                    this.image.data[offset + 1] = pixel.g8;
-                    this.image.data[offset + 2] = pixel.b8;
-                    this.image.data[offset + 3] = a;
-                }
+                this.image.data[offset + 0] = pixel.r8;
+                this.image.data[offset + 1] = pixel.g8;
+                this.image.data[offset + 2] = pixel.b8;
+                this.image.data[offset + 3] = a;
+            }
+            
+            for (let xp = x - 1; xp >= 0; xp--) {
+                const offset = (y * this.width + xp) * 4;
+                const a = (0xFF * 8) / (8 + Math.abs(xp - x));
+                if (this.image.data[offset + 3] > a) break; 
+
+                this.image.data[offset + 0] = pixel.r8;
+                this.image.data[offset + 1] = pixel.g8;
+                this.image.data[offset + 2] = pixel.b8;
+                this.image.data[offset + 3] = a;
             }
         }
         this.context.putImageData(this.image, 0, 0);
