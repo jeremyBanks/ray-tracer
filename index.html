@@ -5,14 +5,26 @@
         background: black;
         padding: 0;
         margin: 0;
+        text-align: center;
+    }
+
+    img:not([src]), img[src] + canvas {
+        display: none;
+    }
+
+    canvas {
+        cursor: progress;
+        background: magenta;
     }
 
     img {
+        background: white;
+        cursor: grab;
+    }
+
+    img[src], canvas {
         display: block;
-        margin: 16px;
-        border: 1px solid white;
-        width: calc(100% - 32px - 8px);
-        background: black;
+        margin: 32px auto;
         image-rendering: pixelated;
     }
 </style>

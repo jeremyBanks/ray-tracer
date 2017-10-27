@@ -12,7 +12,7 @@ class RayTracer {
             new Sphere(V(0, -1000, 0), 1000, new Material(RGB.BLACK)),
         ];
         // after this many bounces, the ray yields to the background color I guess?
-        this.maxBounces = 2;
+        this.maxBounces = 4;
         this.canvas = document.createElement('canvas');
         this.canvas.width = this.width;
         this.canvas.height = this.height;
@@ -21,9 +21,15 @@ class RayTracer {
         this.display = document.createElement('img');
         this.draw();
     }
-    draw() {
-        this.scene[0].center = this.scene[0].center.add(V(10, 0, 0));
+    async draw() {
+        let lastTime = Date.now();
         for (let y = 0; y < this.height; y++) {
+            const now = Date.now();
+            if (now - lastTime > 250) {
+                this.context.putImageData(this.image, 0, 0);
+                await new Promise(r => setTimeout(r));
+                lastTime = now;
+            }
             for (let x = 0; x < this.width; x++) {
                 const samplesPerPixel = 4;
                 const colors = [];
@@ -45,6 +51,7 @@ class RayTracer {
         this.display.src = dataUri;
         this.focalPoint = this.focalPoint.add(V(0, 5, -10));
         this.sensorCenter = this.sensorCenter.add(V(0, 5, -10));
+        this.scene[0].center = this.scene[0].center.add(V(10, 0, 0));
     }
     drawSensorPixel(x, y) {
         const sensorPoint = this.sensorCenter.sub(V(-(this.width - 1) / 2 + x, -(this.height - 1) / 2 + y));
@@ -56,17 +63,11 @@ class RayTracer {
         const hit = this.getRayHit(ray);
         if (hit) {
             const colors = [];
-            const samplesPerBounce = 8;
+            const samplesPerBounce = 4;
             for (let i = 0; i < samplesPerBounce; i++) {
-                const r = Math.random();
-                if (r < 0.6) {
-                    // reflect 40% at original color
-                    colors.push(RGB.blend([RGB.BLACK, hit.subject.material.color]));
-                }
-                else {
-                    // bounce 40% rays on to the next object
-                    colors.push(this.getRayColor(new Ray(hit.location, hit.location.add(hit.normal).add(Vector.randomUnit()), [hit].concat(ray.previousHits))));
-                }
+                colors.push(RGB.BLACK);
+                colors.push(hit.subject.material.color);
+                colors.push(this.getRayColor(new Ray(hit.location, hit.location.add(hit.normal).add(Vector.randomUnit()), [hit].concat(ray.previousHits))));
             }
             return RGB.blend(colors);
         }
@@ -210,7 +211,7 @@ class Hittable {
     }
     // hits on this ray that occur in the future (and so will will be drawn).
     hits(ray) {
-        return this.allHits(ray).filter(hit => hit.t > 0).sort((a, b) => a.t - b.t);
+        return this.allHits(ray).filter(hit => hit.t > 0.001).sort((a, b) => a.t - b.t);
     }
     // all hits on this ray, potentially including ones that occur backwards/in the past
     allHits(ray) {
@@ -265,9 +266,5 @@ class Sphere extends Hittable {
     }
 }
 const tracer = new RayTracer();
-const drawOne = () => {
-    document.body.insertBefore(tracer.display.cloneNode(), document.body.firstChild);
-    tracer.draw();
-    setTimeout(drawOne, 10 * 1000);
-};
-drawOne();
+document.body.appendChild(tracer.display);
+document.body.appendChild(tracer.canvas);
