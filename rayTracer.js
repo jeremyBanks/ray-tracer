@@ -6,11 +6,11 @@ class RayTracer {
         this.focalPoint = V(0, this.height / 2, -256);
         this.sensorCenter = V(0, this.height / 2, 0);
         this.scene = [
-            new Sphere(V(150, 50, 20), 50, new Material(RGB.GREEN)),
-            new Sphere(V(50, 50, 20), 50, new Material(RGB.BLUE)),
-            new Sphere(V(-50, 50, 20), 50, new Material(RGB.RED)),
-            new Sphere(V(0, -1000, 20), 1000, new Material(RGB.WHITE)),
-            new Sphere(V(-50, 500, 50), 400, new Material(RGB.BLACK)),
+            new Sphere(V(+100, 50, 20), 50, new MatteMaterial(RGB.GREEN)),
+            new Sphere(V(0, 50, 20), 50, new ShinyMaterial(RGB.RED)),
+            new Sphere(V(-100, 50, 20), 50, new MatteMaterial(RGB.BLUE)),
+            new Sphere(V(0, -1000, 20), 1000, new MatteMaterial(RGB.BLACK)),
+            new Sphere(V(-50, 500, 50), 400, new MatteMaterial(RGB.BLACK)),
         ];
         // after this many bounces, the ray yields to the background color I guess?
         this.maxBounces = 3;
@@ -32,7 +32,7 @@ class RayTracer {
                 lastTime = now;
             }
             for (let x = 0; x < this.width; x++) {
-                const samplesPerPixel = 4;
+                const samplesPerPixel = 8;
                 const colors = [];
                 for (let i = 0; i < samplesPerPixel; i++) {
                     const dx = Math.random() - 0.5;
@@ -62,13 +62,7 @@ class RayTracer {
     getRayColor(ray, background) {
         const hit = this.getRayHit(ray);
         if (hit) {
-            const colors = [];
-            const samplesPerBounce = 4;
-            for (let i = 0; i < samplesPerBounce; i++) {
-                colors.push(hit.subject.material.color);
-                colors.push(this.getRayColor(new Ray(hit.location, hit.normal.add(Vector.randomUnit()), [hit].concat(ray.previousHits))));
-            }
-            return RGB.blend(colors);
+            return hit.subject.material.colorHit(this, hit);
         }
         // background, defaulting to a color reflecting the ray's direction.
         const a = Math.pow(ray.direction.y + 1 / 2, 2);
@@ -111,8 +105,11 @@ class RGB {
 }
 RGB.BLACK = new RGB(0.0, 0.0, 0.0);
 RGB.WHITE = new RGB(1.0, 1.0, 1.0);
+RGB.MAGENTA = new RGB(1.0, 0.0, 1.0);
 RGB.RED = new RGB(1.0, 0.0, 0.0);
+RGB.YELLOW = new RGB(1.0, 1.0, 0.0);
 RGB.GREEN = new RGB(0.0, 1.0, 0.0);
+RGB.CYAN = new RGB(0.0, 1.0, 1.0);
 RGB.BLUE = new RGB(0.0, 0.0, 1.0);
 /** A vector in euclidian number^3 space */
 class Vector {
@@ -233,10 +230,37 @@ class Hittable {
 /** A material a Hittable can be made of, determining how it's rendered. */
 class Material {
     constructor(color) {
+        this.color = RGB.MAGENTA;
         this.color = color;
     }
+    colorHit(tracer, hit) {
+        return this.color;
+    }
 }
-Material.VOID = new Material(RGB.BLACK);
+/** A material that scatters rays, ignoring their incoming angle. */
+class MatteMaterial extends Material {
+    colorHit(tracer, hit) {
+        const colors = [];
+        const samplesPerBounce = 4;
+        for (let i = 0; i < samplesPerBounce; i++) {
+            colors.push(this.color);
+            colors.push(tracer.getRayColor(new Ray(hit.location, hit.normal.add(Vector.randomUnit()), [hit].concat(hit.ray.previousHits))));
+        }
+        return RGB.blend(colors);
+    }
+}
+/** A material that reflects rays. */
+class ShinyMaterial extends Material {
+    colorHit(tracer, hit) {
+        return RGB.RED;
+    }
+}
+/** A material that refracts rays. */
+class Glass extends Material {
+    colorHit(tracer, hit) {
+        return RGB.RED;
+    }
+}
 /** Information about a particular hit of a Ray into a Hittable. */
 class Hit {
     constructor(ray, subject, t, location, normal) {
@@ -248,7 +272,7 @@ class Hit {
     }
 }
 class Sphere extends Hittable {
-    constructor(center, radius, material = Material.VOID) {
+    constructor(center, radius, material) {
         super();
         this.center = center;
         this.radius = radius;
