@@ -12,8 +12,7 @@ class RayTracer {
             new Sphere(V(0, -1000, 20), 1000, new MatteMaterial(RGB.BLACK)),
             new Sphere(V(-50, 500, 50), 400, new MatteMaterial(RGB.BLACK)),
         ];
-        // after this many bounces, the ray yields to the background color I guess?
-        this.maxBounces = 3;
+        this.maxBounces = 2;
         this.canvas = document.createElement('canvas');
         this.canvas.width = this.width;
         this.canvas.height = this.height;
@@ -37,7 +36,7 @@ class RayTracer {
                 for (let i = 0; i < samplesPerPixel; i++) {
                     const dx = Math.random() - 0.5;
                     const dy = Math.random() - 0.5;
-                    colors.push(this.drawSensorPixel(x + dx, y + dy));
+                    colors.push(this.getSensorColor(x + dx, y + dy));
                 }
                 const pixel = RGB.blend(colors).pow(0.45);
                 const offset = (y * this.width + x) * 4;
@@ -53,30 +52,27 @@ class RayTracer {
         this.focalPoint = this.focalPoint.add(V(1, 1, -64));
         this.sensorCenter = this.sensorCenter.add(V(1, 1, -64));
     }
-    drawSensorPixel(x, y) {
+    getSensorColor(x, y) {
         const sensorPoint = this.sensorCenter.sub(V(-(this.width - 1) / 2 + x, -(this.height - 1) / 2 + y));
         // a ray projecting out from the sensor, away from the focal point
         const ray = new Ray(sensorPoint, sensorPoint.sub(this.focalPoint).direction());
         return this.getRayColor(ray);
     }
     getRayColor(ray, background) {
-        const hit = this.getRayHit(ray);
-        if (hit) {
-            return hit.subject.material.colorHit(this, hit);
-        }
-        // background, defaulting to a color reflecting the ray's direction.
-        const a = Math.pow(ray.direction.y + 1 / 2, 2);
-        return background || new RGB(a, 0.3 + a, 0.5 + a * 2);
-    }
-    getRayHit(ray) {
-        if (ray.previousHits.length >= this.maxBounces)
-            return null;
+        if (ray.previousHits >= this.maxBounces)
+            return RGB.BLACK;
         const hits = [];
         for (const hittable of this.scene) {
             hits.push(...hittable.hits(ray));
         }
         hits.sort((a, b) => a.t - b.t);
-        return hits[0] || null;
+        if (hits.length > 0) {
+            const hit = hits[0];
+            return hit.subject.material.colorHit(this, hit);
+        }
+        // background, defaulting to a color reflecting the ray's direction.
+        const a = Math.pow(ray.direction.y + 1 / 2, 2);
+        return background || new RGB(a, 0.3 + a, 0.5 + a * 2);
     }
 }
 /** RGB float color. */
@@ -203,7 +199,7 @@ Vector.Z = new Vector(0, 0, 1);
 const V = (x = 0, y = 0, z = 0) => new Vector(x, y, z);
 /** A ray proceeding from a point in a constant direction at one unit distance per one unit time. */
 class Ray {
-    constructor(origin, direction, previousHits = []) {
+    constructor(origin, direction, previousHits = 0) {
         this.origin = origin;
         this.direction = direction.direction();
         this.previousHits = previousHits;
@@ -244,7 +240,7 @@ class MatteMaterial extends Material {
         const samplesPerBounce = 4;
         for (let i = 0; i < samplesPerBounce; i++) {
             colors.push(this.color);
-            colors.push(tracer.getRayColor(new Ray(hit.location, hit.normal.add(Vector.randomUnit()), [hit].concat(hit.ray.previousHits))));
+            colors.push(tracer.getRayColor(new Ray(hit.location, hit.normal.add(Vector.randomUnit()), hit.ray.previousHits + 1)));
         }
         return RGB.blend(colors);
     }
@@ -252,7 +248,9 @@ class MatteMaterial extends Material {
 /** A material that reflects rays. */
 class ShinyMaterial extends Material {
     colorHit(tracer, hit) {
-        return RGB.RED;
+        const direction = hit.ray.direction;
+        const reflection = direction.sub(hit.normal.scale(2 * direction.dot(hit.normal)));
+        return tracer.getRayColor(new Ray(hit.location, reflection, hit.ray.previousHits + 1));
     }
 }
 /** A material that refracts rays. */

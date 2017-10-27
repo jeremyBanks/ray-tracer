@@ -47,7 +47,7 @@ class RayTracer {
                 for (let i = 0; i < samplesPerPixel; i++) {
                     const dx = Math.random() - 0.5;
                     const dy = Math.random() - 0.5;
-                    colors.push(this.drawSensorPixel(x + dx, y + dy));
+                    colors.push(this.getSensorColor(x + dx, y + dy));
                 }
                 const pixel = RGB.blend(colors).pow(0.45);
 
@@ -66,7 +66,7 @@ class RayTracer {
         this.sensorCenter = this.sensorCenter.add(V(1, 1, -64));
     }
     
-    drawSensorPixel(x: number, y: number): RGB {
+    getSensorColor(x: number, y: number): RGB {
         const sensorPoint = this.sensorCenter.sub(V(
             -(this.width - 1) / 2 + x,
             -(this.height - 1) / 2 + y
@@ -78,29 +78,25 @@ class RayTracer {
       return this.getRayColor(ray);
     }
 
+    maxBounces = 2;
+
     getRayColor(ray: Ray, background?: RGB): RGB {
-        const hit = this.getRayHit(ray);
-        if (hit) {
-            return hit.subject.material.colorHit(this, hit);
-        }
-      
-        // background, defaulting to a color reflecting the ray's direction.
-        const a = Math.pow(ray.direction.y + 1 / 2, 2);
-        return background || new RGB(a, 0.3 + a, 0.5 + a * 2);
-    }
-
-    // after this many bounces, the ray yields to the background color I guess?
-    maxBounces = 3;
-
-    getRayHit(ray: Ray): Hit | null {
-        if (ray.previousHits.length >= this.maxBounces) return null;
+        if (ray.previousHits >= this.maxBounces) return RGB.BLACK;
 
         const hits: Hit[] = [];
         for (const hittable of this.scene) {
             hits.push(...hittable.hits(ray));
         }
         hits.sort((a, b) => a.t - b.t);
-        return hits[0] || null;
+        
+        if (hits.length > 0) {
+            const hit = hits[0]
+            return hit.subject.material.colorHit(this, hit);
+        }
+      
+        // background, defaulting to a color reflecting the ray's direction.
+        const a = Math.pow(ray.direction.y + 1 / 2, 2);
+        return background || new RGB(a, 0.3 + a, 0.5 + a * 2);
     }
 }
 
@@ -259,9 +255,9 @@ class Ray {
     direction: Vector;
 
     // Previous hits whose reflections led to this ray.
-    previousHits: Hit[];
+    previousHits: number;
 
-    constructor(origin: Vector, direction: Vector, previousHits: Hit[] = []) {
+    constructor(origin: Vector, direction: Vector, previousHits: number = 0) {
         this.origin = origin;
         this.direction = direction.direction();
         this.previousHits = previousHits;
@@ -315,7 +311,7 @@ class MatteMaterial extends Material {
         const samplesPerBounce = 4;
         for (let i = 0; i < samplesPerBounce; i++) {
             colors.push(this.color);
-            colors.push(tracer.getRayColor(new Ray(hit.location, hit.normal.add(Vector.randomUnit()), [hit].concat(hit.ray.previousHits))));
+            colors.push(tracer.getRayColor(new Ray(hit.location, hit.normal.add(Vector.randomUnit()), hit.ray.previousHits + 1)));
         }
         return RGB.blend(colors);
     }
@@ -324,7 +320,9 @@ class MatteMaterial extends Material {
 /** A material that reflects rays. */
 class ShinyMaterial extends Material {
     colorHit(tracer: RayTracer, hit: Hit): RGB {
-        return RGB.RED;
+        const direction = hit.ray.direction;
+        const reflection = direction.sub(hit.normal.scale(2 * direction.dot(hit.normal)));
+        return tracer.getRayColor(new Ray(hit.location, reflection, hit.ray.previousHits + 1));
     }
 }
 
