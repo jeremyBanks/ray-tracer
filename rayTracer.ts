@@ -1,22 +1,6 @@
-const memoize = <T>(target: Object, propertyKey: string, descriptor: TypedPropertyDescriptor<T>): void => {
-    const memory: WeakMap<Object, T> = new WeakMap();
-    if (descriptor.get) {
-        const getter = descriptor.get;
-        descriptor.get = function() {
-            const cached = memory.get(this);
-            if (cached) return cached;
-            const computed = getter.call(this);
-            memory.set(this, computed);
-            return computed;
-        };
-    } else {
-        throw new Error('@memoize only supports getters');
-    }
-};
-
 class RayTracer {
-    width = 400;
-    height = 300;
+    width = 200;
+    height = 150;
 
     canvas: HTMLCanvasElement;
     context: CanvasRenderingContext2D;
@@ -35,8 +19,8 @@ class RayTracer {
         this.draw();
     }
     
-    focalPoint: Vector = V(0, 75, -512);
-    sensorCenter: Vector = V(0, 75, 0);
+    focalPoint: Vector = V(0, 25, -256);
+    sensorCenter: Vector = V(0, 25, 0);
     
     async draw() {
         let lastTime = Date.now();
@@ -50,7 +34,7 @@ class RayTracer {
             }
 
             for (let x = 0; x < this.width; x++) {
-                const samplesPerPixel = 4;
+                const samplesPerPixel = 2;
                 const colors: RGB[] = [];
                 for (let i = 0; i < samplesPerPixel; i++) {
                     const dx = Math.random() - 0.5;
@@ -70,18 +54,16 @@ class RayTracer {
         const dataUri = this.canvas.toDataURL();
         this.display.src = dataUri;
         
-        this.focalPoint = this.focalPoint.add(V(0, 5, -10));
-        this.sensorCenter = this.sensorCenter.add(V(0, 5, -10));
-
-        (this.scene[0] as Sphere).center = (this.scene[0] as Sphere).center.add(V(10, 0, 0));
+        this.focalPoint = this.focalPoint.add(V(1, 1, -64));
+        this.sensorCenter = this.sensorCenter.add(V(1, 1, -64));
     }
     
     scene: Hittable[] = [
         new Sphere(V(-50, 30, 10), 30, new Material(RGB.RED)),
         new Sphere(V(150, 50, 20), 50, new Material(RGB.GREEN)),
-        new Sphere(V(75, 100, 1000), 100, new Material(RGB.BLUE)),
+        new Sphere(V(75, 100, 500), 100, new Material(RGB.BLUE)),
         new Sphere(V(0, -1050, 250), 1000, new Material(RGB.BLACK)),
-        new Sphere(V(-300, 500, 400), 400, new Material(RGB.BLACK)),
+        new Sphere(V(-350, 500, 400), 400, new Material(RGB.BLACK)),
     ];
     
     drawSensorPixel(x: number, y: number): RGB {
@@ -91,7 +73,7 @@ class RayTracer {
         ));
   
       // a ray projecting out from the sensor, away from the focal point
-      const ray = new Ray(sensorPoint, sensorPoint.sub(this.focalPoint).direction);
+      const ray = new Ray(sensorPoint, sensorPoint.sub(this.focalPoint).direction());
 
       return this.getRayColor(ray);
     }
@@ -100,7 +82,7 @@ class RayTracer {
         const hit = this.getRayHit(ray);
         if (hit) {
             const colors: RGB[] = [];
-            const samplesPerBounce = 4;
+            const samplesPerBounce = 1;
             for (let i = 0; i < samplesPerBounce; i++) {
                 colors.push(RGB.BLACK);
                 colors.push(hit.subject.material.color);
@@ -115,7 +97,7 @@ class RayTracer {
     }
 
     // after this many bounces, the ray yields to the background color I guess?
-    maxBounces = 4;
+    maxBounces = 32;
 
     getRayHit(ray: Ray): Hit | null {
         if (ray.previousHits.length >= this.maxBounces) return null;
@@ -173,9 +155,9 @@ class RGB {
 
 /** A vector in euclidian number^3 space */
 class Vector {
-    x: number;
-    y: number;
-    z: number;
+    readonly x: number;
+    readonly y: number;
+    readonly z: number;
   
     constructor(x: number = 0, y: number = 0, z: number = 0) {
         if (Vector.ZERO && Object.is(x, +0) && Object.is(y, +0) && Object.is(z, +0)) return Vector.ZERO;
@@ -183,28 +165,35 @@ class Vector {
         this.x = x;
         this.y = y;
         this.z = z;
-  
-        // Vectors are immutable for sanity and optimization.
-        Object.freeze(this);
     }
 
     // scalar/absolute magnitude
-    @memoize
-    get magnitude(): number {
-        return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+    private magnitudeValue?: number = undefined;
+    magnitude(): number {
+        if (this.magnitudeValue == null) {
+            this.magnitudeValue = Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+        }
+        return this.magnitudeValue;
     }
 
     // directionally-equivalent unit or zero vector
-    @memoize
-    get direction(): Vector {
-        if (this.magnitude === 0 || this.magnitude === 1) return this;
-    
-        return this.scale(1 / this.magnitude);
+    private directionValue?: Vector = undefined;
+    direction(): Vector {
+        if (this.directionValue == null) {
+            const magnitude = this.magnitude();
+            if (magnitude === 0 || magnitude === 1) {
+                this.directionValue = this;
+            } else {
+                this.directionValue = this.scale(1 / magnitude);
+                this.directionValue.magnitudeValue = 1;
+                this.directionValue.directionValue = this.directionValue;
+            }
+        }
+        return this.directionValue;
     }
 
     // negation
-    @memoize
-    get negative(): Vector {
+    negative(): Vector {
         if (this === Vector.ZERO) return this;
 
         return new Vector(-this.x, -this.y, -this.z);
@@ -253,8 +242,9 @@ class Vector {
         // to avoid bias towards corner directions.
         while (true) {
             const p = new Vector(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
-            if (p.magnitude <= 0.5 && p.magnitude > 0) {
-              return p.direction;
+            const magnitude = p.magnitude();
+            if (magnitude <= 0.5 && magnitude > 0) {
+              return p.direction();
             }
         }
     }
@@ -277,7 +267,7 @@ class Ray {
 
     constructor(origin: Vector, direction: Vector, previousHits: Hit[] = []) {
         this.origin = origin;
-        this.direction = direction.direction;
+        this.direction = direction.direction();
         this.previousHits = previousHits;
     }
 
@@ -298,7 +288,7 @@ abstract class Hittable {
 
     // hits on this ray that occur in the future (and so will will be drawn).
     hits(ray: Ray): Hit[] {
-        return this.allHits(ray).filter(hit => hit.t > 0.001).sort((a, b) => a.t - b.t);
+        return this.allHits(ray).filter(hit => hit.t > 0.0001).sort((a, b) => a.t - b.t);
     }
 
     // all hits on this ray, potentially including ones that occur backwards/in the past
@@ -328,12 +318,12 @@ class Hit {
     t: number;
     normal: Vector;
 
-    constructor(ray: Ray, subject: Hittable, t: number, normal: Vector) {
+    constructor(ray: Ray, subject: Hittable, t: number, location: Vector, normal: Vector) {
         this.ray = ray;
         this.subject = subject;
         this.t = t;
-        this.location = this.ray.at(t);
-        this.normal = normal.direction;
+        this.location = location;
+        this.normal = normal.direction();
     }
 }
 
@@ -357,15 +347,18 @@ class Sphere extends Hittable {
         const discriminant = b * b - 4 * a * c;
 
         const t1 = (-b + Math.sqrt(discriminant)) / (2 * a);
+        const l1 = ray.at(t1);
         if (discriminant > 0) {
             const t2 = (-b - Math.sqrt(discriminant)) / (2 * a);
+            const l2 = ray.at(t2);
             return [
-                new Hit(ray, this, t1, ray.at(t1).sub(this.center).direction),
-                new Hit(ray, this, t2, ray.at(t2).sub(this.center).direction)];
+                new Hit(ray, this, t1, l1, l1.sub(this.center).direction()),
+                new Hit(ray, this, t2, l2, l2.sub(this.center).direction())
+            ];
         } else if (discriminant == 0) {
-            // they're the same point -- our ray is perfectly orthogonal
             return [
-                new Hit(ray, this, t1, ray.at(t1).sub(this.center).direction)];
+                new Hit(ray, this, t1, l1, l1.sub(this.center).direction())
+            ];
         }
 
         return [];
@@ -377,4 +370,10 @@ const tracer = new RayTracer();
 document.body.appendChild(tracer.display); 
 document.body.appendChild(tracer.canvas);
 
+const f = async () => {
+    await tracer.draw();
+    // document.body.insertBefore(tracer.display.cloneNode(), document.body.firstChild);
+    setTimeout(f, 1000 / 32);
+};
 
+f();
