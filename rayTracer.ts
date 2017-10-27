@@ -23,11 +23,12 @@ class RayTracer {
     sensorCenter = V(0, this.height / 2, 0);
     
     scene: Hittable[] = [
-        new Sphere(V(+100, 50, 20), 50, new MatteMaterial(RGB.GREEN)),
-        new Sphere(V(   0, 50, 20), 50, new ShinyMaterial(RGB.RED)),
-        new Sphere(V(-100, 50, 20), 50, new MatteMaterial(RGB.BLUE)),
-        new Sphere(V(0, -1000, 20), 1000, new MatteMaterial(RGB.BLACK)),
-        new Sphere(V(-50, 500, 50), 400, new MatteMaterial(RGB.BLACK)),
+        new Sphere(V(+125, 50, 100), 50, new ShinyMaterial(RGB.GREEN)),
+        new Sphere(V(   0, 50, 100), 50, new ShinyMaterial(RGB.RED)),
+        new Sphere(V(-125, 50, 100), 50, new MatteMaterial(RGB.BLUE)),
+        
+        new Sphere(V(0, -1000, 1000), 1000, new MatteMaterial(RGB.BLACK)),
+        new Sphere(V(-50, 500, 400), 400, new MatteMaterial(RGB.WHITE)),
     ];
     
     async draw() {
@@ -78,7 +79,7 @@ class RayTracer {
       return this.getRayColor(ray);
     }
 
-    maxBounces = 2;
+    maxBounces = 4;
 
     getRayColor(ray: Ray, background?: RGB): RGB {
         if (ray.previousHits >= this.maxBounces) return RGB.BLACK;
@@ -322,7 +323,13 @@ class ShinyMaterial extends Material {
     colorHit(tracer: RayTracer, hit: Hit): RGB {
         const direction = hit.ray.direction;
         const reflection = direction.sub(hit.normal.scale(2 * direction.dot(hit.normal)));
-        return tracer.getRayColor(new Ray(hit.location, reflection, hit.ray.previousHits + 1));
+        const colors: RGB[] = [];
+        const samplesPerBounce = 4;
+        for (let i = 0; i < samplesPerBounce; i++) {
+            colors.push(this.color);
+            colors.push(tracer.getRayColor(new Ray(hit.location, reflection, hit.ray.previousHits + 1)));
+        }
+        return RGB.blend(colors);
     }
 }
 
