@@ -10,6 +10,11 @@ export class RayTracer {
     image: ImageData;
     output: HTMLImageElement;
 
+    width = 400;
+    height = 300;
+
+    scene = new Scene();
+
     constructor() {
         this.canvas = document.createElement('canvas');
         this.canvas.width = this.width;
@@ -22,21 +27,6 @@ export class RayTracer {
         this.render();
     }
 
-    width = 400;
-    height = 300;
-    
-    focalPoint = V(0, this.height / 2, -256);
-    sensorCenter = V(0, this.height / 2, 0);
-    
-    scene: Geometry[] = [
-        new Sphere(V(+125, 50, 100), 50, new ShinyMaterial(Color.GREEN)),
-        new Sphere(V(   0, 50, 100), 50, new ShinyMaterial(Color.RED)),
-        new Sphere(V(-125, 50, 100), 50, new MatteMaterial(Color.BLUE)),
-
-        new Sphere(V(0, -1000, 1000), 1000, new MatteMaterial(Color.BLACK)),
-        new Sphere(V(-50, 500, 400), 400, new MatteMaterial(Color.WHITE)),
-    ];
-    
     async render() {
         let lastTime = Date.now();
 
@@ -54,7 +44,10 @@ export class RayTracer {
                 for (let i = 0; i < samplesPerPixel; i++) {
                     const dx = Math.random() - 0.5;
                     const dy = Math.random() - 0.5;
-                    colors.push(this.getSensorColor(x + dx, y + dy));
+                    // BUG: this doesn't account for aspect ratio!
+                    this.scene.camera.getRay(
+                        (x + dx) / (this.width - 1),
+                        (y + dy) / (this.height - 1));
                 }
                 const pixel = Color.blend(colors).pow(0.45);
 
@@ -68,9 +61,6 @@ export class RayTracer {
         this.context.putImageData(this.image, 0, 0);
         const dataUri = this.canvas.toDataURL();
         this.output.src = dataUri;
-        
-        this.focalPoint = this.focalPoint.add(V(1, 1, -64));
-        this.sensorCenter = this.sensorCenter.add(V(1, 1, -64));
     }
     
     getSensorColor(x: number, y: number): Color {
@@ -92,8 +82,8 @@ export class RayTracer {
         if (ray.previousHits >= this.maxBounces) return Color.BLACK;
 
         const hits: Hit[] = [];
-        for (const hittable of this.scene) {
-            hits.push(...hittable.hits(ray));
+        for (const hittable of this.scene.items) {
+            hits.push(...hittable.geometry.hits(ray));
         }
         hits.sort((a, b) => a.t - b.t);
         
@@ -170,11 +160,11 @@ class Glass extends Material {
 export class Hit {
     location: Vector;
     ray: Ray;
-    subject: Geometry;
+    subject: Item;
     t: number;
     normal: Vector;
 
-    constructor(ray: Ray, subject: Geometry, t: number, location: Vector, normal: Vector) {
+    constructor(ray: Ray, subject: Item, t: number, location: Vector, normal: Vector) {
         this.ray = ray;
         this.subject = subject;
         this.t = t;
@@ -185,11 +175,14 @@ export class Hit {
 
 
 export class Scene {
-    items: Item[];
+    items: Item[] = [
+        new Item(new Sphere(V(+125, 50, 100), 50), new ShinyMaterial(Color.GREEN)),
+        new Item(new Sphere(V(   0, 50, 100), 50), new ShinyMaterial(Color.RED)),
+        new Item(new Sphere(V(-125, 50, 100), 50), new MatteMaterial(Color.BLUE)),
+        new Item(new Sphere(V(0, -1000, 1000), 1000), new MatteMaterial(Color.BLACK)),
+        new Item(new Sphere(V(-50, 500, 400), 400), new MatteMaterial(Color.WHITE)),
+    ];
     camera = new Camera();
-    constructor(items: Iterable<Item>) {
-        this.items = [...items];
-    }
 }
 
 
@@ -205,8 +198,6 @@ export class Item {
 
 /** An object our rays can hit. */
 export abstract class Geometry {
-    material: Material;
-
     hit(ray: Ray): Hit | null {
         return this.hits(ray)[0] || null;
     }
@@ -226,11 +217,10 @@ class Sphere extends Geometry {
     center: Vector;
     radius: number;
 
-    constructor(center: Vector, radius: number, material: Material) {
+    constructor(center: Vector, radius: number) {
         super();
         this.center = center;
         this.radius = radius;
-        this.material = material;
     }
 
     allHits(ray: Ray): Hit[] { 

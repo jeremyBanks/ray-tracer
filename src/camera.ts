@@ -30,14 +30,13 @@ export class Camera {
 
     // gets the ray leaving the lens of this camera at fractions x and y of
     // the way across the width and height of the lens.
+    // x and y should usually be between 0 and 1, but can be slightly out of that
+    // range if you're doing something like sampling.
     getRay(x: number, y: number) {
-        if (x < 0 || x > 1) throw new Error(`x is ${x}, out of bounds`);
-        if (y < 0 || y > 1) throw new Error(`y is ${y}, out of bounds`);
-
         // This only works for our hard-coded direction V(0, 0, 1).
         const lensPoint = this.location.add(V(
             -this.halfWidth + x * this.width, -this.halfHeight + y * this.height, 0));
-        
+
         return new Ray(lensPoint, lensPoint.sub(this.focalPoint));
     }
 }

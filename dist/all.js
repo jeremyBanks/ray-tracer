@@ -152,11 +152,9 @@ System.register("camera", ["vector", "ray"], function (exports_3, context_3) {
                 }
                 // gets the ray leaving the lens of this camera at fractions x and y of
                 // the way across the width and height of the lens.
+                // x and y should usually be between 0 and 1, but can be slightly out of that
+                // range if you're doing something like sampling.
                 getRay(x, y) {
-                    if (x < 0 || x > 1)
-                        throw new Error(`x is ${x}, out of bounds`);
-                    if (y < 0 || y > 1)
-                        throw new Error(`y is ${y}, out of bounds`);
                     // This only works for our hard-coded direction V(0, 0, 1).
                     const lensPoint = this.location.add(vector_1.V(-this.halfWidth + x * this.width, -this.halfHeight + y * this.height, 0));
                     return new ray_1.Ray(lensPoint, lensPoint.sub(this.focalPoint));
@@ -252,15 +250,7 @@ System.register("raytracer", ["color", "vector", "ray", "camera"], function (exp
                 constructor() {
                     this.width = 400;
                     this.height = 300;
-                    this.focalPoint = vector_2.V(0, this.height / 2, -256);
-                    this.sensorCenter = vector_2.V(0, this.height / 2, 0);
-                    this.scene = [
-                        new Sphere(vector_2.V(+125, 50, 100), 50, new ShinyMaterial(color_1.Color.GREEN)),
-                        new Sphere(vector_2.V(0, 50, 100), 50, new ShinyMaterial(color_1.Color.RED)),
-                        new Sphere(vector_2.V(-125, 50, 100), 50, new MatteMaterial(color_1.Color.BLUE)),
-                        new Sphere(vector_2.V(0, -1000, 1000), 1000, new MatteMaterial(color_1.Color.BLACK)),
-                        new Sphere(vector_2.V(-50, 500, 400), 400, new MatteMaterial(color_1.Color.WHITE)),
-                    ];
+                    this.scene = new Scene();
                     this.maxBounces = 4;
                     this.canvas = document.createElement('canvas');
                     this.canvas.width = this.width;
@@ -285,7 +275,8 @@ System.register("raytracer", ["color", "vector", "ray", "camera"], function (exp
                             for (let i = 0; i < samplesPerPixel; i++) {
                                 const dx = Math.random() - 0.5;
                                 const dy = Math.random() - 0.5;
-                                colors.push(this.getSensorColor(x + dx, y + dy));
+                                // BUG: this doesn't account for aspect ratio!
+                                this.scene.camera.getRay((x + dx) / (this.width - 1), (y + dy) / (this.height - 1));
                             }
                             const pixel = color_1.Color.blend(colors).pow(0.45);
                             const offset = (y * this.width + x) * 4;
@@ -298,8 +289,6 @@ System.register("raytracer", ["color", "vector", "ray", "camera"], function (exp
                     this.context.putImageData(this.image, 0, 0);
                     const dataUri = this.canvas.toDataURL();
                     this.output.src = dataUri;
-                    this.focalPoint = this.focalPoint.add(vector_2.V(1, 1, -64));
-                    this.sensorCenter = this.sensorCenter.add(vector_2.V(1, 1, -64));
                 }
                 getSensorColor(x, y) {
                     const sensorPoint = this.sensorCenter.sub(vector_2.V(-(this.width - 1) / 2 + x, -(this.height - 1) / 2 + y, 0));
@@ -311,8 +300,8 @@ System.register("raytracer", ["color", "vector", "ray", "camera"], function (exp
                     if (ray.previousHits >= this.maxBounces)
                         return color_1.Color.BLACK;
                     const hits = [];
-                    for (const hittable of this.scene) {
-                        hits.push(...hittable.hits(ray));
+                    for (const hittable of this.scene.items) {
+                        hits.push(...hittable.geometry.hits(ray));
                     }
                     hits.sort((a, b) => a.t - b.t);
                     if (hits.length > 0) {
@@ -380,9 +369,15 @@ System.register("raytracer", ["color", "vector", "ray", "camera"], function (exp
             };
             exports_5("Hit", Hit);
             Scene = class Scene {
-                constructor(items) {
+                constructor() {
+                    this.items = [
+                        new Item(new Sphere(vector_2.V(+125, 50, 100), 50), new ShinyMaterial(color_1.Color.GREEN)),
+                        new Item(new Sphere(vector_2.V(0, 50, 100), 50), new ShinyMaterial(color_1.Color.RED)),
+                        new Item(new Sphere(vector_2.V(-125, 50, 100), 50), new MatteMaterial(color_1.Color.BLUE)),
+                        new Item(new Sphere(vector_2.V(0, -1000, 1000), 1000), new MatteMaterial(color_1.Color.BLACK)),
+                        new Item(new Sphere(vector_2.V(-50, 500, 400), 400), new MatteMaterial(color_1.Color.WHITE)),
+                    ];
                     this.camera = new camera_1.Camera();
-                    this.items = [...items];
                 }
             };
             exports_5("Scene", Scene);
@@ -409,11 +404,10 @@ System.register("raytracer", ["color", "vector", "ray", "camera"], function (exp
             };
             exports_5("Geometry", Geometry);
             Sphere = class Sphere extends Geometry {
-                constructor(center, radius, material) {
+                constructor(center, radius) {
                     super();
                     this.center = center;
                     this.radius = radius;
-                    this.material = material;
                 }
                 allHits(ray) {
                     const oc = ray.origin.sub(this.center);

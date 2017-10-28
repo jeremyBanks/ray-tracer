@@ -85,12 +85,10 @@ declare module "raytracer" {
         context: CanvasRenderingContext2D;
         image: ImageData;
         output: HTMLImageElement;
-        constructor();
         width: number;
         height: number;
-        focalPoint: Vector;
-        sensorCenter: Vector;
-        scene: Geometry[];
+        scene: Scene;
+        constructor();
         render(): Promise<void>;
         getSensorColor(x: number, y: number): Color;
         maxBounces: number;
@@ -106,15 +104,14 @@ declare module "raytracer" {
     export class Hit {
         location: Vector;
         ray: Ray;
-        subject: Geometry;
+        subject: Item;
         t: number;
         normal: Vector;
-        constructor(ray: Ray, subject: Geometry, t: number, location: Vector, normal: Vector);
+        constructor(ray: Ray, subject: Item, t: number, location: Vector, normal: Vector);
     }
     export class Scene {
         items: Item[];
         camera: Camera;
-        constructor(items: Iterable<Item>);
     }
     export class Item {
         geometry: Geometry;
@@ -123,7 +120,6 @@ declare module "raytracer" {
     }
     /** An object our rays can hit. */
     export abstract class Geometry {
-        material: Material;
         hit(ray: Ray): Hit | null;
         hits(ray: Ray): Hit[];
         allHits(ray: Ray): Hit[];
