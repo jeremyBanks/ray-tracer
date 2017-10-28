@@ -40,6 +40,10 @@ export class Color {
 
     // Blends an array of colors, each optionally with an associated weight.
     static blend(colors: (Color | [number, Color])[]) {
+        if (colors.length == 0) {
+            throw new Error("can't blend array of 0 colors");
+        }
+
         let r = 0, g = 0, b = 0, max = 0;
         for (const c of colors) {
             let weight: number;

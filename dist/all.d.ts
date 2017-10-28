@@ -23,20 +23,39 @@ declare module "vector" {
         static randomUnit(): Vector;
     }
 }
-declare module "ray" {
+declare module "geometry" {
     import { Vector } from "vector";
     /** A ray proceeding from a point in a constant direction at one unit distance per one unit time. */
     export class Ray {
         origin: Vector;
         direction: Vector;
-        previousHits: number;
-        constructor(origin: Vector, direction: Vector, previousHits?: number);
+        constructor(origin: Vector, direction: Vector);
         at(t: number): Vector;
+    }
+    /** The location and surface normal of a ray's hit. */
+    export class Hit {
+        readonly ray: Ray;
+        readonly t: number;
+        readonly location: Vector;
+        readonly normal: Vector;
+        constructor(ray: Ray, t: number, location: Vector, normal: Vector);
+    }
+    /** An object our rays can hit. */
+    export abstract class Geometry {
+        firstHit(ray: Ray): Hit | null;
+        hits(ray: Ray): Hit[];
+        allHits(ray: Ray): Hit[];
+    }
+    export class Sphere extends Geometry {
+        center: Vector;
+        radius: number;
+        constructor(center: Vector, radius: number);
+        allHits(ray: Ray): Hit[];
     }
 }
 declare module "camera" {
     import { Vector } from "vector";
-    import { Ray } from "ray";
+    import { Ray } from "geometry";
     export class Camera {
         readonly location: Vector;
         readonly direction: Vector;
@@ -77,37 +96,34 @@ declare module "color" {
 }
 declare module "raytracer" {
     import { Color } from "color";
-    import { Vector } from "vector";
-    import { Ray } from "ray";
+    import { Ray, Hit, Geometry } from "geometry";
     import { Camera } from "camera";
     export class RayTracer {
-        canvas: HTMLCanvasElement;
-        context: CanvasRenderingContext2D;
-        image: ImageData;
-        output: HTMLImageElement;
-        width: number;
-        height: number;
-        scene: Scene;
+        readonly canvas: HTMLCanvasElement;
+        readonly context: CanvasRenderingContext2D;
+        readonly image: ImageData;
+        readonly output: HTMLImageElement;
+        readonly width: number;
+        readonly height: number;
+        readonly scene: Scene;
         constructor();
         render(): Promise<void>;
-        getSensorColor(x: number, y: number): Color;
-        maxBounces: number;
-        getRayColor(ray: Ray, background?: Color): Color;
+        readonly maxBounces: number;
+        getRayColor(ray: Ray, previousHit?: RayHit): Color;
     }
     /** A material a Hittable can be made of, determining how it's rendered. */
     export class Material {
         color: Color;
         constructor(color: Color);
-        colorHit(tracer: RayTracer, hit: Hit): Color;
+        hitColor(tracer: RayTracer, rayHit: RayHit): Color;
     }
-    /** Information about a particular hit of a Ray into a Hittable. */
-    export class Hit {
-        location: Vector;
-        ray: Ray;
-        subject: Item;
-        t: number;
-        normal: Vector;
-        constructor(ray: Ray, subject: Item, t: number, location: Vector, normal: Vector);
+    /** All of the information about a hit and its ray. */
+    export class RayHit {
+        readonly subject: Item;
+        readonly hit: Hit;
+        readonly previousHit: RayHit | null;
+        readonly previousHits: number;
+        constructor(hit: Hit, subject: Item, previousHit?: RayHit);
     }
     export class Scene {
         items: Item[];
@@ -117,12 +133,7 @@ declare module "raytracer" {
         geometry: Geometry;
         material: Material;
         constructor(geometry: Geometry, material: Material);
-    }
-    /** An object our rays can hit. */
-    export abstract class Geometry {
-        hit(ray: Ray): Hit | null;
-        hits(ray: Ray): Hit[];
-        allHits(ray: Ray): Hit[];
+        toString(): string;
     }
 }
 declare module "main" {

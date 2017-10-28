@@ -1,4 +1,3 @@
-"use strict";
 System.register("vector", [], function (exports_1, context_1) {
     "use strict";
     var __moduleName = context_1 && context_1.id;
@@ -90,47 +89,111 @@ System.register("vector", [], function (exports_1, context_1) {
         }
     };
 });
-System.register("ray", [], function (exports_2, context_2) {
+System.register("geometry", ["vector"], function (exports_2, context_2) {
     "use strict";
     var __moduleName = context_2 && context_2.id;
-    var Ray;
-    return {
-        setters: [],
-        execute: function () {
-            /** A ray proceeding from a point in a constant direction at one unit distance per one unit time. */
-            Ray = class Ray {
-                constructor(origin, direction, previousHits = 0) {
-                    this.origin = origin;
-                    this.direction = direction.direction();
-                    this.previousHits = previousHits;
-                }
-                // The position of the ray at a given time.
-                at(t) {
-                    return this.origin.add(this.direction.scale(t));
-                }
-            };
-            exports_2("Ray", Ray);
-        }
-    };
-});
-System.register("camera", ["vector", "ray"], function (exports_3, context_3) {
-    "use strict";
-    var __moduleName = context_3 && context_3.id;
-    var vector_1, ray_1, Camera;
+    var vector_1, Ray, Hit, Geometry, Sphere;
     return {
         setters: [
             function (vector_1_1) {
                 vector_1 = vector_1_1;
+            }
+        ],
+        execute: function () {
+            /** A ray proceeding from a point in a constant direction at one unit distance per one unit time. */
+            Ray = class Ray {
+                constructor(origin, direction) {
+                    this.origin = origin;
+                    this.direction = direction.direction();
+                }
+                // The position of the ray at a given time.
+                at(t) {
+                    // inlined // return this.origin.add(this.direction.scale(t));
+                    return new vector_1.Vector(this.origin.x + this.direction.x * t, this.origin.y + this.direction.y * t, this.origin.z + this.direction.z * t);
+                }
+            };
+            exports_2("Ray", Ray);
+            /** The location and surface normal of a ray's hit. */
+            Hit = class Hit {
+                constructor(ray, t, location, normal) {
+                    this.ray = ray;
+                    this.t = t;
+                    this.location = location;
+                    this.normal = normal;
+                }
+            };
+            exports_2("Hit", Hit);
+            /** An object our rays can hit. */
+            Geometry = class Geometry {
+                firstHit(ray) {
+                    return this.hits(ray)[0] || null;
+                }
+                // hits on this ray that occur in the future (and so will will be drawn).
+                hits(ray) {
+                    return this.allHits(ray).filter(hit => hit.t > 0.0001).sort((a, b) => a.t - b.t);
+                }
+                // all hits on this ray, potentially including ones that occur backwards/in the past
+                allHits(ray) {
+                    return this.hits(ray);
+                }
+            };
+            exports_2("Geometry", Geometry);
+            Sphere = class Sphere extends Geometry {
+                constructor(center, radius) {
+                    super();
+                    this.center = center;
+                    this.radius = radius;
+                }
+                allHits(ray) {
+                    const oc = ray.origin.sub(this.center);
+                    const a = ray.direction.dot(ray.direction);
+                    const b = 2.0 * oc.dot(ray.direction);
+                    const c = oc.dot(oc) - this.radius * this.radius;
+                    const discriminant = b * b - 4 * a * c;
+                    if (discriminant >= 1) {
+                        const t1 = (-b + Math.sqrt(discriminant)) / (2 * a);
+                        const l1 = ray.at(t1);
+                        if (discriminant == 2) {
+                            const t2 = (-b - Math.sqrt(discriminant)) / (2 * a);
+                            const l2 = ray.at(t2);
+                            return [
+                                new Hit(ray, t1, l1, l1.sub(this.center).direction()),
+                                new Hit(ray, t2, l2, l2.sub(this.center).direction())
+                            ];
+                        }
+                        else {
+                            return [
+                                new Hit(ray, t1, l1, l1.sub(this.center).direction()),
+                            ];
+                        }
+                    }
+                    else {
+                        return [];
+                    }
+                }
+            };
+            exports_2("Sphere", Sphere);
+        }
+    };
+});
+System.register("camera", ["vector", "geometry"], function (exports_3, context_3) {
+    "use strict";
+    var __moduleName = context_3 && context_3.id;
+    var vector_2, geometry_1, Camera;
+    return {
+        setters: [
+            function (vector_2_1) {
+                vector_2 = vector_2_1;
             },
-            function (ray_1_1) {
-                ray_1 = ray_1_1;
+            function (geometry_1_1) {
+                geometry_1 = geometry_1_1;
             }
         ],
         execute: function () {
             Camera = class Camera {
                 constructor() {
-                    this.location = vector_1.V(0.0, 0.0, 0.0);
-                    this.direction = vector_1.V(0.0, 0.0, 1.0);
+                    this.location = vector_2.V(0.0, 0.0, 0.0);
+                    this.direction = vector_2.V(0.0, 0.0, 1.0);
                     this.depth = 2.0;
                     this.focalPoint = this.location.sub(this.direction.scale(this.depth));
                     this.width = 1.0;
@@ -156,8 +219,8 @@ System.register("camera", ["vector", "ray"], function (exports_3, context_3) {
                 // range if you're doing something like sampling.
                 getRay(x, y) {
                     // This only works for our hard-coded direction V(0, 0, 1).
-                    const lensPoint = this.location.add(vector_1.V(-this.halfWidth + x * this.width, -this.halfHeight + y * this.height, 0));
-                    return new ray_1.Ray(lensPoint, lensPoint.sub(this.focalPoint));
+                    const lensPoint = this.location.add(vector_2.V(-this.halfWidth + x * this.width, -this.halfHeight + y * this.height, 0));
+                    return new geometry_1.Ray(lensPoint, lensPoint.sub(this.focalPoint));
                 }
             };
             exports_3("Camera", Camera);
@@ -195,6 +258,9 @@ System.register("color", [], function (exports_4, context_4) {
                 }
                 // Blends an array of colors, each optionally with an associated weight.
                 static blend(colors) {
+                    if (colors.length == 0) {
+                        throw new Error("can't blend array of 0 colors");
+                    }
                     let r = 0, g = 0, b = 0, max = 0;
                     for (const c of colors) {
                         let weight;
@@ -226,20 +292,20 @@ System.register("color", [], function (exports_4, context_4) {
         }
     };
 });
-System.register("raytracer", ["color", "vector", "ray", "camera"], function (exports_5, context_5) {
+System.register("raytracer", ["color", "vector", "geometry", "camera"], function (exports_5, context_5) {
     "use strict";
     var __moduleName = context_5 && context_5.id;
-    var color_1, vector_2, ray_2, camera_1, RayTracer, Material, MatteMaterial, ShinyMaterial, Glass, Hit, Scene, Item, Geometry, Sphere;
+    var color_1, vector_3, geometry_2, camera_1, RayTracer, Material, MatteMaterial, ShinyMaterial, GlassMaterial, RayHit, Scene, Item;
     return {
         setters: [
             function (color_1_1) {
                 color_1 = color_1_1;
             },
-            function (vector_2_1) {
-                vector_2 = vector_2_1;
+            function (vector_3_1) {
+                vector_3 = vector_3_1;
             },
-            function (ray_2_1) {
-                ray_2 = ray_2_1;
+            function (geometry_2_1) {
+                geometry_2 = geometry_2_1;
             },
             function (camera_1_1) {
                 camera_1 = camera_1_1;
@@ -258,59 +324,66 @@ System.register("raytracer", ["color", "vector", "ray", "camera"], function (exp
                     this.context = this.canvas.getContext('2d');
                     this.image = this.context.createImageData(this.width, this.height);
                     this.output = document.createElement('img');
-                    this.render();
                 }
                 async render() {
                     let lastTime = Date.now();
-                    for (let y = 0; y < this.height; y++) {
-                        const now = Date.now();
-                        if (now - lastTime > 250) {
-                            this.context.putImageData(this.image, 0, 0);
-                            await new Promise(r => setTimeout(r));
-                            lastTime = now;
-                        }
-                        for (let x = 0; x < this.width; x++) {
-                            const samplesPerPixel = 8;
-                            const colors = [];
-                            for (let i = 0; i < samplesPerPixel; i++) {
-                                const dx = Math.random() - 0.5;
-                                const dy = Math.random() - 0.5;
-                                // BUG: this doesn't account for aspect ratio!
-                                this.scene.camera.getRay((x + dx) / (this.width - 1), (y + dy) / (this.height - 1));
+                    const size = Math.max(this.width, this.height);
+                    const chunkSize = Math.floor(size / 32);
+                    // how much we crop inside the potential camera frame on each side to match the target aspect ratio
+                    const xCropping = (size - this.width) / 2;
+                    const yCropping = (size - this.height) / 2;
+                    for (let yOffset = 0; yOffset < this.height; yOffset += chunkSize) {
+                        for (let xOffset = 0; xOffset < this.width; xOffset += chunkSize) {
+                            for (let x = xOffset; x < this.width && x < xOffset + chunkSize; x++) {
+                                for (let y = yOffset; y < this.height && y < yOffset + chunkSize; y++) {
+                                    const now = Date.now();
+                                    if (now - lastTime > 250) {
+                                        this.context.putImageData(this.image, 0, 0);
+                                        await new Promise(r => setTimeout(r));
+                                        lastTime = now;
+                                    }
+                                    const samplesPerPixel = 8;
+                                    const colors = [];
+                                    for (let i = 0; i < samplesPerPixel; i++) {
+                                        const dx = Math.random() - 0.5;
+                                        const dy = Math.random() - 0.5;
+                                        // BUG: this doesn't account for aspect ratio!
+                                        colors.push(this.getRayColor(this.scene.camera.getRay((xCropping + x + dx) / (size - 1), (yCropping + y + dy) / (size - 1))));
+                                    }
+                                    const pixel = color_1.Color.blend(colors); //.pow(0.45);
+                                    const offset = (y * this.width + x) * 4;
+                                    this.image.data[offset + 0] = pixel.r8;
+                                    this.image.data[offset + 1] = pixel.g8;
+                                    this.image.data[offset + 2] = pixel.b8;
+                                    this.image.data[offset + 3] = 0xFF;
+                                }
                             }
-                            const pixel = color_1.Color.blend(colors).pow(0.45);
-                            const offset = (y * this.width + x) * 4;
-                            this.image.data[offset + 0] = pixel.r8;
-                            this.image.data[offset + 1] = pixel.g8;
-                            this.image.data[offset + 2] = pixel.b8;
-                            this.image.data[offset + 3] = 0xFF;
                         }
                     }
                     this.context.putImageData(this.image, 0, 0);
                     const dataUri = this.canvas.toDataURL();
                     this.output.src = dataUri;
                 }
-                getSensorColor(x, y) {
-                    const sensorPoint = this.sensorCenter.sub(vector_2.V(-(this.width - 1) / 2 + x, -(this.height - 1) / 2 + y, 0));
-                    // a ray projecting out from the sensor, away from the focal point
-                    const ray = new ray_2.Ray(sensorPoint, sensorPoint.sub(this.focalPoint).direction());
-                    return this.getRayColor(ray);
-                }
-                getRayColor(ray, background) {
-                    if (ray.previousHits >= this.maxBounces)
+                getRayColor(ray, previousHit) {
+                    if ((previousHit ? previousHit.previousHits : 0) + 1 >= this.maxBounces) {
                         return color_1.Color.BLACK;
-                    const hits = [];
-                    for (const hittable of this.scene.items) {
-                        hits.push(...hittable.geometry.hits(ray));
                     }
-                    hits.sort((a, b) => a.t - b.t);
-                    if (hits.length > 0) {
-                        const hit = hits[0];
-                        return hit.subject.material.colorHit(this, hit);
+                    let closestHit;
+                    let closestHitItem;
+                    for (const item of this.scene.items) {
+                        const hit = item.geometry.firstHit(ray);
+                        if (hit && (!closestHit || hit.t < closestHit.t)) {
+                            closestHit = hit;
+                            closestHitItem = item;
+                        }
                     }
-                    // background, defaulting to a color reflecting the ray's direction.
+                    if (closestHit && closestHitItem) {
+                        const rayHit = new RayHit(closestHit, closestHitItem, previousHit);
+                        return closestHitItem.material.hitColor(this, rayHit);
+                    }
+                    // background, a light color reflecting the ray's direction.
                     const a = Math.pow(ray.direction.y + 1 / 2, 2);
-                    return background || color_1.RGB(a, 0.3 + a, 0.5 + a * 2);
+                    return color_1.RGB(a, 0.3 + a, 0.5 + a * 2);
                 }
             };
             exports_5("RayTracer", RayTracer);
@@ -320,62 +393,63 @@ System.register("raytracer", ["color", "vector", "ray", "camera"], function (exp
                     this.color = color_1.Color.MAGENTA;
                     this.color = color;
                 }
-                colorHit(tracer, hit) {
+                hitColor(tracer, rayHit) {
                     return this.color;
                 }
             };
             exports_5("Material", Material);
             /** A material that scatters rays, ignoring their incoming angle. */
             MatteMaterial = class MatteMaterial extends Material {
-                colorHit(tracer, hit) {
+                hitColor(tracer, rayHit) {
                     const colors = [];
-                    const samplesPerBounce = 4;
+                    const samplesPerBounce = Math.ceil(8 / (rayHit.previousHits + 1));
                     for (let i = 0; i < samplesPerBounce; i++) {
-                        colors.push(this.color);
-                        colors.push(tracer.getRayColor(new ray_2.Ray(hit.location, hit.normal.add(vector_2.Vector.randomUnit()), hit.ray.previousHits + 1)));
+                        colors.push([1, this.color]);
+                        const scatteredRay = new geometry_2.Ray(rayHit.hit.location, rayHit.hit.normal.add(vector_3.Vector.randomUnit()));
+                        colors.push([1, tracer.getRayColor(scatteredRay, rayHit)]);
                     }
                     return color_1.Color.blend(colors);
                 }
             };
             /** A material that reflects rays. */
             ShinyMaterial = class ShinyMaterial extends Material {
-                colorHit(tracer, hit) {
-                    const direction = hit.ray.direction;
-                    const reflection = direction.sub(hit.normal.scale(2 * direction.dot(hit.normal)));
+                hitColor(tracer, rayHit) {
+                    const direction = rayHit.hit.ray.direction;
+                    const reflection = direction.sub(rayHit.hit.normal.scale(2 * direction.dot(rayHit.hit.normal))).direction();
                     const colors = [];
-                    const samplesPerBounce = 4;
+                    const samplesPerBounce = 1;
                     for (let i = 0; i < samplesPerBounce; i++) {
-                        colors.push(this.color);
-                        colors.push(tracer.getRayColor(new ray_2.Ray(hit.location, reflection, hit.ray.previousHits + 1)));
+                        colors.push([1, this.color]);
+                        const reflectedRay = new geometry_2.Ray(rayHit.hit.location, reflection);
+                        colors.push([1, tracer.getRayColor(reflectedRay, rayHit)]);
                     }
                     return color_1.Color.blend(colors);
                 }
             };
             /** A material that refracts rays. */
-            Glass = class Glass extends Material {
-                colorHit(tracer, hit) {
+            GlassMaterial = class GlassMaterial extends Material {
+                hitColor(tracer, rayHit) {
                     return color_1.Color.RED;
                 }
             };
-            /** Information about a particular hit of a Ray into a Hittable. */
-            Hit = class Hit {
-                constructor(ray, subject, t, location, normal) {
-                    this.ray = ray;
+            /** All of the information about a hit and its ray. */
+            RayHit = class RayHit {
+                constructor(hit, subject, previousHit) {
+                    this.hit = hit;
                     this.subject = subject;
-                    this.t = t;
-                    this.location = location;
-                    this.normal = normal.direction();
+                    this.previousHit = previousHit || null;
+                    this.previousHits = previousHit ? previousHit.previousHits + 1 : 0;
                 }
             };
-            exports_5("Hit", Hit);
+            exports_5("RayHit", RayHit);
             Scene = class Scene {
                 constructor() {
                     this.items = [
-                        new Item(new Sphere(vector_2.V(+125, 50, 100), 50), new ShinyMaterial(color_1.Color.GREEN)),
-                        new Item(new Sphere(vector_2.V(0, 50, 100), 50), new ShinyMaterial(color_1.Color.RED)),
-                        new Item(new Sphere(vector_2.V(-125, 50, 100), 50), new MatteMaterial(color_1.Color.BLUE)),
-                        new Item(new Sphere(vector_2.V(0, -1000, 1000), 1000), new MatteMaterial(color_1.Color.BLACK)),
-                        new Item(new Sphere(vector_2.V(-50, 500, 400), 400), new MatteMaterial(color_1.Color.WHITE)),
+                        new Item(new geometry_2.Sphere(vector_3.V(+125, 50, 1100), 50), new ShinyMaterial(color_1.Color.GREEN)),
+                        new Item(new geometry_2.Sphere(vector_3.V(0, 50, 1100), 50), new ShinyMaterial(color_1.Color.RED)),
+                        new Item(new geometry_2.Sphere(vector_3.V(-125, 50, 1100), 50), new MatteMaterial(color_1.Color.BLUE)),
+                        new Item(new geometry_2.Sphere(vector_3.V(0, -1000, 2000), 1000), new MatteMaterial(color_1.Color.BLACK)),
+                        new Item(new geometry_2.Sphere(vector_3.V(-50, 500, 1400), 400), new MatteMaterial(color_1.Color.WHITE)),
                     ];
                     this.camera = new camera_1.Camera();
                 }
@@ -386,55 +460,11 @@ System.register("raytracer", ["color", "vector", "ray", "camera"], function (exp
                     this.geometry = geometry;
                     this.material = material;
                 }
+                toString() {
+                    return `${this.material} ${this.geometry}`;
+                }
             };
             exports_5("Item", Item);
-            /** An object our rays can hit. */
-            Geometry = class Geometry {
-                hit(ray) {
-                    return this.hits(ray)[0] || null;
-                }
-                // hits on this ray that occur in the future (and so will will be drawn).
-                hits(ray) {
-                    return this.allHits(ray).filter(hit => hit.t > 0.0001).sort((a, b) => a.t - b.t);
-                }
-                // all hits on this ray, potentially including ones that occur backwards/in the past
-                allHits(ray) {
-                    return this.hits(ray);
-                }
-            };
-            exports_5("Geometry", Geometry);
-            Sphere = class Sphere extends Geometry {
-                constructor(center, radius) {
-                    super();
-                    this.center = center;
-                    this.radius = radius;
-                }
-                allHits(ray) {
-                    const oc = ray.origin.sub(this.center);
-                    const a = ray.direction.dot(ray.direction);
-                    const b = 2.0 * oc.dot(ray.direction);
-                    const c = oc.dot(oc) - this.radius * this.radius;
-                    const discriminant = b * b - 4 * a * c;
-                    if (discriminant >= 1) {
-                        const t1 = (-b + Math.sqrt(discriminant)) / (2 * a);
-                        const l1 = ray.at(t1);
-                        if (discriminant == 2) {
-                            const t2 = (-b - Math.sqrt(discriminant)) / (2 * a);
-                            const l2 = ray.at(t2);
-                            return [
-                                new Hit(ray, this, t1, l1, l1.sub(this.center).direction()),
-                                new Hit(ray, this, t2, l2, l2.sub(this.center).direction())
-                            ];
-                        }
-                        else {
-                            return [
-                                new Hit(ray, this, t1, l1, l1.sub(this.center).direction())
-                            ];
-                        }
-                    }
-                    return [];
-                }
-            };
         }
     };
 });
@@ -454,6 +484,7 @@ System.register("main", ["raytracer"], function (exports_6, context_6) {
                 document.body.appendChild(tracer.output);
                 document.body.appendChild(tracer.canvas);
                 tracer.render();
+                setInterval(() => tracer.render(), 30000);
             };
             main();
         }
