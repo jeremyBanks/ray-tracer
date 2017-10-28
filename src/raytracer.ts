@@ -1,5 +1,7 @@
-import {Vector, V} from './vector';
 import {Color, RGB} from './color';
+import {Vector, V} from './vector';
+import {Ray} from './ray';
+import {Camera} from './camera';
 
 
 export class RayTracer {
@@ -26,7 +28,7 @@ export class RayTracer {
     focalPoint = V(0, this.height / 2, -256);
     sensorCenter = V(0, this.height / 2, 0);
     
-    scene: Hittable[] = [
+    scene: Geometry[] = [
         new Sphere(V(+125, 50, 100), 50, new ShinyMaterial(Color.GREEN)),
         new Sphere(V(   0, 50, 100), 50, new ShinyMaterial(Color.RED)),
         new Sphere(V(-125, 50, 100), 50, new MatteMaterial(Color.BLUE)),
@@ -112,45 +114,6 @@ export class RayTracer {
 
 
 
-/** A ray proceeding from a point in a constant direction at one unit distance per one unit time. */
-export class Ray {
-    origin: Vector;
-    direction: Vector;
-
-    // Previous hits whose reflections led to this ray.
-    previousHits: number;
-
-    constructor(origin: Vector, direction: Vector, previousHits: number = 0) {
-        this.origin = origin;
-        this.direction = direction.direction();
-        this.previousHits = previousHits;
-    }
-
-    // The position of the ray at a given time.
-    at(t: number): Vector {
-        return this.origin.add(this.direction.scale(t));
-    }
-}
-
-
-/** An object our rays can hit. */
-export abstract class Hittable {
-    material: Material;
-
-    hit(ray: Ray): Hit | null {
-        return this.hits(ray)[0] || null;
-    }
-
-    // hits on this ray that occur in the future (and so will will be drawn).
-    hits(ray: Ray): Hit[] {
-        return this.allHits(ray).filter(hit => hit.t > 0.0001).sort((a, b) => a.t - b.t);
-    }
-
-    // all hits on this ray, potentially including ones that occur backwards/in the past
-    allHits(ray: Ray): Hit[] {
-        return this.hits(ray);
-    }
-}
 
 
 /** A material a Hittable can be made of, determining how it's rendered. */
@@ -207,11 +170,11 @@ class Glass extends Material {
 export class Hit {
     location: Vector;
     ray: Ray;
-    subject: Hittable;
+    subject: Geometry;
     t: number;
     normal: Vector;
 
-    constructor(ray: Ray, subject: Hittable, t: number, location: Vector, normal: Vector) {
+    constructor(ray: Ray, subject: Geometry, t: number, location: Vector, normal: Vector) {
         this.ray = ray;
         this.subject = subject;
         this.t = t;
@@ -221,7 +184,45 @@ export class Hit {
 }
 
 
-class Sphere extends Hittable {
+export class Scene {
+    items: Item[];
+    camera = new Camera();
+    constructor(items: Iterable<Item>) {
+        this.items = [...items];
+    }
+}
+
+
+export class Item {
+    geometry: Geometry;
+    material: Material;
+    constructor(geometry: Geometry, material: Material) {
+        this.geometry = geometry;
+        this.material = material;
+    }
+}
+
+
+/** An object our rays can hit. */
+export abstract class Geometry {
+    material: Material;
+
+    hit(ray: Ray): Hit | null {
+        return this.hits(ray)[0] || null;
+    }
+
+    // hits on this ray that occur in the future (and so will will be drawn).
+    hits(ray: Ray): Hit[] {
+        return this.allHits(ray).filter(hit => hit.t > 0.0001).sort((a, b) => a.t - b.t);
+    }
+
+    // all hits on this ray, potentially including ones that occur backwards/in the past
+    allHits(ray: Ray): Hit[] {
+        return this.hits(ray);
+    }
+}
+
+class Sphere extends Geometry {
     center: Vector;
     radius: number;
 
@@ -239,19 +240,22 @@ class Sphere extends Hittable {
         const c = oc.dot(oc) - this.radius * this.radius;
         const discriminant = b * b - 4 * a * c;
 
-        const t1 = (-b + Math.sqrt(discriminant)) / (2 * a);
-        const l1 = ray.at(t1);
-        if (discriminant > 0) {
-            const t2 = (-b - Math.sqrt(discriminant)) / (2 * a);
-            const l2 = ray.at(t2);
-            return [
-                new Hit(ray, this, t1, l1, l1.sub(this.center).direction()),
-                new Hit(ray, this, t2, l2, l2.sub(this.center).direction())
-            ];
-        } else if (discriminant == 0) {
-            return [
-                new Hit(ray, this, t1, l1, l1.sub(this.center).direction())
-            ];
+        if (discriminant >= 1) {
+            const t1 = (-b + Math.sqrt(discriminant)) / (2 * a);
+            const l1 = ray.at(t1);
+
+            if (discriminant == 2) {
+                const t2 = (-b - Math.sqrt(discriminant)) / (2 * a);
+                const l2 = ray.at(t2);
+                return [
+                    new Hit(ray, this, t1, l1, l1.sub(this.center).direction()),
+                    new Hit(ray, this, t2, l2, l2.sub(this.center).direction())
+                ];
+            } else {
+                return [
+                    new Hit(ray, this, t1, l1, l1.sub(this.center).direction())
+                ];
+            }
         }
 
         return [];

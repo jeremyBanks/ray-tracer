@@ -1,14 +1,188 @@
-System.register("color", [], function (exports_1, context_1) {
+"use strict";
+System.register("vector", [], function (exports_1, context_1) {
     "use strict";
     var __moduleName = context_1 && context_1.id;
+    var V, Vector;
+    return {
+        setters: [],
+        execute: function () {
+            /** A vector in number^3 space. */
+            exports_1("V", V = (x, y, z) => new Vector(x, y, z));
+            Vector = class Vector {
+                constructor(x, y, z) {
+                    // scalar/absolute magnitude
+                    this.magnitudeValue = undefined;
+                    // directionally-equivalent unit or zero vector
+                    this.directionValue = undefined;
+                    if (!Number.isFinite(x))
+                        throw new Error(`x is ${x}`);
+                    if (!Number.isFinite(y))
+                        throw new Error(`y is ${y}`);
+                    if (!Number.isFinite(z))
+                        throw new Error(`z is ${z}`);
+                    this.x = x;
+                    this.y = y;
+                    this.z = z;
+                }
+                magnitude() {
+                    if (this.magnitudeValue == null) {
+                        this.magnitudeValue = Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+                    }
+                    return this.magnitudeValue;
+                }
+                direction() {
+                    if (this.directionValue == null) {
+                        const magnitude = this.magnitude();
+                        if (magnitude === 0 || magnitude === 1) {
+                            this.directionValue = this;
+                        }
+                        else {
+                            this.directionValue = this.scale(1 / magnitude);
+                            this.directionValue.magnitudeValue = 1;
+                            this.directionValue.directionValue = this.directionValue;
+                        }
+                    }
+                    return this.directionValue;
+                }
+                // negation
+                negative() {
+                    return new Vector(-this.x, -this.y, -this.z);
+                }
+                // addition
+                add(other) {
+                    return new Vector(this.x + other.x, this.y + other.y, this.z + other.z);
+                }
+                // subtraction
+                sub(other) {
+                    return new Vector(this.x - other.x, this.y - other.y, this.z - other.z);
+                }
+                // scale/multiply
+                scale(factor) {
+                    return new Vector(this.x * factor, this.y * factor, this.z * factor);
+                }
+                // dot product (scalar product of parallelism :P)
+                dot(other) {
+                    return this.x * other.x + this.y * other.y + this.z * other.z;
+                }
+                // cross product (result perpendicular to both operands)
+                cross(other) {
+                    return new Vector(this.y * other.z - this.z * other.y, -this.x * other.z - this.z * other.x, this.x * other.y - this.y * other.x);
+                }
+                // a random unit-length vector
+                static randomUnit() {
+                    // we generate points within a cube but reject those that fall outside of a sphere
+                    // to avoid bias towards corner directions.
+                    while (true) {
+                        const p = new Vector(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
+                        const magnitude = p.magnitude();
+                        if (magnitude <= 0.5 && magnitude > 0) {
+                            return p.direction();
+                        }
+                    }
+                }
+            };
+            Vector.ZERO = Object.freeze(new Vector(0, 0, 0));
+            Vector.X = Object.freeze(new Vector(1, 0, 0));
+            Vector.Y = Object.freeze(new Vector(0, 1, 0));
+            Vector.Z = Object.freeze(new Vector(0, 0, 1));
+            exports_1("Vector", Vector);
+            ;
+        }
+    };
+});
+System.register("ray", [], function (exports_2, context_2) {
+    "use strict";
+    var __moduleName = context_2 && context_2.id;
+    var Ray;
+    return {
+        setters: [],
+        execute: function () {
+            /** A ray proceeding from a point in a constant direction at one unit distance per one unit time. */
+            Ray = class Ray {
+                constructor(origin, direction, previousHits = 0) {
+                    this.origin = origin;
+                    this.direction = direction.direction();
+                    this.previousHits = previousHits;
+                }
+                // The position of the ray at a given time.
+                at(t) {
+                    return this.origin.add(this.direction.scale(t));
+                }
+            };
+            exports_2("Ray", Ray);
+        }
+    };
+});
+System.register("camera", ["vector", "ray"], function (exports_3, context_3) {
+    "use strict";
+    var __moduleName = context_3 && context_3.id;
+    var vector_1, ray_1, Camera;
+    return {
+        setters: [
+            function (vector_1_1) {
+                vector_1 = vector_1_1;
+            },
+            function (ray_1_1) {
+                ray_1 = ray_1_1;
+            }
+        ],
+        execute: function () {
+            Camera = class Camera {
+                constructor() {
+                    this.location = vector_1.V(0.0, 0.0, 0.0);
+                    this.direction = vector_1.V(0.0, 0.0, 1.0);
+                    this.depth = 2.0;
+                    this.focalPoint = this.location.sub(this.direction.scale(this.depth));
+                    this.width = 1.0;
+                    this.height = 1.0;
+                    this.halfWidth = this.width / 2.0;
+                    this.halfHeight = this.height / 2.0;
+                }
+                moveTo(location) {
+                    // this.location = location;
+                    return this;
+                }
+                lookAt(location) {
+                    // this.direction = location.sub(this.location).direction();
+                    throw new Error('not implemented');
+                }
+                // sets the lens depth so that it will obtain this fov given a 1-unit width/height
+                setFov(degrees) {
+                    throw new Error('not implemented');
+                }
+                // gets the ray leaving the lens of this camera at fractions x and y of
+                // the way across the width and height of the lens.
+                getRay(x, y) {
+                    if (x < 0 || x > 1)
+                        throw new Error(`x is ${x}, out of bounds`);
+                    if (y < 0 || y > 1)
+                        throw new Error(`y is ${y}, out of bounds`);
+                    // This only works for our hard-coded direction V(0, 0, 1).
+                    const lensPoint = this.location.add(vector_1.V(-this.halfWidth + x * this.width, -this.halfHeight + y * this.height, 0));
+                    return new ray_1.Ray(lensPoint, lensPoint.sub(this.focalPoint));
+                }
+            };
+            exports_3("Camera", Camera);
+        }
+    };
+});
+System.register("color", [], function (exports_4, context_4) {
+    "use strict";
+    var __moduleName = context_4 && context_4.id;
     var RGB, Color;
     return {
         setters: [],
         execute: function () {
             /** An RGB number-channel color. */
-            exports_1("RGB", RGB = (r, g, b) => new Color(r, g, b));
+            exports_4("RGB", RGB = (r, g, b) => new Color(r, g, b));
             Color = class Color {
                 constructor(r, g, b) {
+                    if (!Number.isFinite(r))
+                        throw new Error(`r is ${r}`);
+                    if (!Number.isFinite(g))
+                        throw new Error(`g is ${g}`);
+                    if (!Number.isFinite(b))
+                        throw new Error(`b is ${b}`);
                     this.r = Math.min(1.0, Math.max(0.0, r));
                     this.g = Math.min(1.0, Math.max(0.0, g));
                     this.b = Math.min(1.0, Math.max(0.0, b));
@@ -42,130 +216,35 @@ System.register("color", [], function (exports_1, context_1) {
                     return new Color(r / max, g / max, b / max);
                 }
             };
-            Color.BLACK = new Color(0.0, 0.0, 0.0);
-            Color.WHITE = new Color(1.0, 1.0, 1.0);
-            Color.MAGENTA = new Color(1.0, 0.0, 1.0);
-            Color.RED = new Color(1.0, 0.0, 0.0);
-            Color.YELLOW = new Color(1.0, 1.0, 0.0);
-            Color.GREEN = new Color(0.0, 1.0, 0.0);
-            Color.CYAN = new Color(0.0, 1.0, 1.0);
-            Color.BLUE = new Color(0.0, 0.0, 1.0);
-            exports_1("Color", Color);
+            Color.BLACK = Object.freeze(new Color(0, 0, 0));
+            Color.BLUE = Object.freeze(new Color(0, 0, 1));
+            Color.GREEN = Object.freeze(new Color(0, 1, 0));
+            Color.CYAN = Object.freeze(new Color(0, 1, 1));
+            Color.RED = Object.freeze(new Color(1, 0, 0));
+            Color.MAGENTA = Object.freeze(new Color(1, 0, 1));
+            Color.YELLOW = Object.freeze(new Color(1, 1, 0));
+            Color.WHITE = Object.freeze(new Color(1, 1, 1));
+            exports_4("Color", Color);
         }
     };
 });
-System.register("vector", [], function (exports_2, context_2) {
+System.register("raytracer", ["color", "vector", "ray", "camera"], function (exports_5, context_5) {
     "use strict";
-    var __moduleName = context_2 && context_2.id;
-    var V, Vector;
-    return {
-        setters: [],
-        execute: function () {
-            /** A vector in number^3 space. */
-            exports_2("V", V = (x, y, z) => new Vector(x, y, z));
-            Vector = class Vector {
-                constructor(x, y, z) {
-                    // scalar/absolute magnitude
-                    this.magnitudeValue = undefined;
-                    // directionally-equivalent unit or zero vector
-                    this.directionValue = undefined;
-                    if (Vector.ZERO && Object.is(x, +0) && Object.is(y, +0) && Object.is(z, +0))
-                        return Vector.ZERO;
-                    this.x = x;
-                    this.y = y;
-                    this.z = z;
-                }
-                magnitude() {
-                    if (this.magnitudeValue == null) {
-                        this.magnitudeValue = Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
-                    }
-                    return this.magnitudeValue;
-                }
-                direction() {
-                    if (this.directionValue == null) {
-                        const magnitude = this.magnitude();
-                        if (magnitude === 0 || magnitude === 1) {
-                            this.directionValue = this;
-                        }
-                        else {
-                            this.directionValue = this.scale(1 / magnitude);
-                            this.directionValue.magnitudeValue = 1;
-                            this.directionValue.directionValue = this.directionValue;
-                        }
-                    }
-                    return this.directionValue;
-                }
-                // negation
-                negative() {
-                    if (this === Vector.ZERO)
-                        return this;
-                    return new Vector(-this.x, -this.y, -this.z);
-                }
-                // addition
-                add(other) {
-                    if (this === Vector.ZERO)
-                        return other;
-                    if (other === Vector.ZERO)
-                        return this;
-                    return new Vector(this.x + other.x, this.y + other.y, this.z + other.z);
-                }
-                // subtraction
-                sub(other) {
-                    if (other === Vector.ZERO)
-                        return this;
-                    if (other === this)
-                        return Vector.ZERO;
-                    return new Vector(this.x - other.x, this.y - other.y, this.z - other.z);
-                }
-                // scale/multiply
-                scale(factor) {
-                    if (factor === 0)
-                        return Vector.ZERO;
-                    if (factor === 1)
-                        return this;
-                    return new Vector(this.x * factor, this.y * factor, this.z * factor);
-                }
-                // dot product (scalar product of parallelism :P)
-                dot(other) {
-                    return this.x * other.x + this.y * other.y + this.z * other.z;
-                }
-                // cross product (result perpendicular to both operands)
-                cross(other) {
-                    return new Vector(this.y * other.z - this.z * other.y, -this.x * other.z - this.z * other.x, this.x * other.y - this.y * other.x);
-                }
-                // a random unit-length vector
-                static randomUnit() {
-                    // we generate points within a cube but reject those that fall outside of a sphere
-                    // to avoid bias towards corner directions.
-                    while (true) {
-                        const p = new Vector(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
-                        const magnitude = p.magnitude();
-                        if (magnitude <= 0.5 && magnitude > 0) {
-                            return p.direction();
-                        }
-                    }
-                }
-            };
-            Vector.ZERO = new Vector(+0, +0, +0);
-            Vector.X = new Vector(1, 0, 0);
-            Vector.Y = new Vector(0, 1, 0);
-            Vector.Z = new Vector(0, 0, 1);
-            exports_2("Vector", Vector);
-            ;
-        }
-    };
-});
-System.register("raytracer", ["vector", "color"], function (exports_3, context_3) {
-    "use strict";
-    var __moduleName = context_3 && context_3.id;
-    var vector_1, color_1, RayTracer, Ray, Hittable, Material, MatteMaterial, ShinyMaterial, Glass, Hit, Sphere;
+    var __moduleName = context_5 && context_5.id;
+    var color_1, vector_2, ray_2, camera_1, RayTracer, Material, MatteMaterial, ShinyMaterial, Glass, Hit, Scene, Item, Geometry, Sphere;
     return {
         setters: [
-            function (vector_1_1) {
-                vector_1 = vector_1_1;
-            },
             function (color_1_1) {
                 color_1 = color_1_1;
+            },
+            function (vector_2_1) {
+                vector_2 = vector_2_1;
+            },
+            function (ray_2_1) {
+                ray_2 = ray_2_1;
+            },
+            function (camera_1_1) {
+                camera_1 = camera_1_1;
             }
         ],
         execute: function () {
@@ -173,14 +252,14 @@ System.register("raytracer", ["vector", "color"], function (exports_3, context_3
                 constructor() {
                     this.width = 400;
                     this.height = 300;
-                    this.focalPoint = vector_1.V(0, this.height / 2, -256);
-                    this.sensorCenter = vector_1.V(0, this.height / 2, 0);
+                    this.focalPoint = vector_2.V(0, this.height / 2, -256);
+                    this.sensorCenter = vector_2.V(0, this.height / 2, 0);
                     this.scene = [
-                        new Sphere(vector_1.V(+125, 50, 100), 50, new ShinyMaterial(color_1.Color.GREEN)),
-                        new Sphere(vector_1.V(0, 50, 100), 50, new ShinyMaterial(color_1.Color.RED)),
-                        new Sphere(vector_1.V(-125, 50, 100), 50, new MatteMaterial(color_1.Color.BLUE)),
-                        new Sphere(vector_1.V(0, -1000, 1000), 1000, new MatteMaterial(color_1.Color.BLACK)),
-                        new Sphere(vector_1.V(-50, 500, 400), 400, new MatteMaterial(color_1.Color.WHITE)),
+                        new Sphere(vector_2.V(+125, 50, 100), 50, new ShinyMaterial(color_1.Color.GREEN)),
+                        new Sphere(vector_2.V(0, 50, 100), 50, new ShinyMaterial(color_1.Color.RED)),
+                        new Sphere(vector_2.V(-125, 50, 100), 50, new MatteMaterial(color_1.Color.BLUE)),
+                        new Sphere(vector_2.V(0, -1000, 1000), 1000, new MatteMaterial(color_1.Color.BLACK)),
+                        new Sphere(vector_2.V(-50, 500, 400), 400, new MatteMaterial(color_1.Color.WHITE)),
                     ];
                     this.maxBounces = 4;
                     this.canvas = document.createElement('canvas');
@@ -219,13 +298,13 @@ System.register("raytracer", ["vector", "color"], function (exports_3, context_3
                     this.context.putImageData(this.image, 0, 0);
                     const dataUri = this.canvas.toDataURL();
                     this.output.src = dataUri;
-                    this.focalPoint = this.focalPoint.add(vector_1.V(1, 1, -64));
-                    this.sensorCenter = this.sensorCenter.add(vector_1.V(1, 1, -64));
+                    this.focalPoint = this.focalPoint.add(vector_2.V(1, 1, -64));
+                    this.sensorCenter = this.sensorCenter.add(vector_2.V(1, 1, -64));
                 }
                 getSensorColor(x, y) {
-                    const sensorPoint = this.sensorCenter.sub(vector_1.V(-(this.width - 1) / 2 + x, -(this.height - 1) / 2 + y, 0));
+                    const sensorPoint = this.sensorCenter.sub(vector_2.V(-(this.width - 1) / 2 + x, -(this.height - 1) / 2 + y, 0));
                     // a ray projecting out from the sensor, away from the focal point
-                    const ray = new Ray(sensorPoint, sensorPoint.sub(this.focalPoint).direction());
+                    const ray = new ray_2.Ray(sensorPoint, sensorPoint.sub(this.focalPoint).direction());
                     return this.getRayColor(ray);
                 }
                 getRayColor(ray, background) {
@@ -245,35 +324,7 @@ System.register("raytracer", ["vector", "color"], function (exports_3, context_3
                     return background || color_1.RGB(a, 0.3 + a, 0.5 + a * 2);
                 }
             };
-            exports_3("RayTracer", RayTracer);
-            /** A ray proceeding from a point in a constant direction at one unit distance per one unit time. */
-            Ray = class Ray {
-                constructor(origin, direction, previousHits = 0) {
-                    this.origin = origin;
-                    this.direction = direction.direction();
-                    this.previousHits = previousHits;
-                }
-                // The position of the ray at a given time.
-                at(t) {
-                    return this.origin.add(this.direction.scale(t));
-                }
-            };
-            exports_3("Ray", Ray);
-            /** An object our rays can hit. */
-            Hittable = class Hittable {
-                hit(ray) {
-                    return this.hits(ray)[0] || null;
-                }
-                // hits on this ray that occur in the future (and so will will be drawn).
-                hits(ray) {
-                    return this.allHits(ray).filter(hit => hit.t > 0.0001).sort((a, b) => a.t - b.t);
-                }
-                // all hits on this ray, potentially including ones that occur backwards/in the past
-                allHits(ray) {
-                    return this.hits(ray);
-                }
-            };
-            exports_3("Hittable", Hittable);
+            exports_5("RayTracer", RayTracer);
             /** A material a Hittable can be made of, determining how it's rendered. */
             Material = class Material {
                 constructor(color) {
@@ -284,7 +335,7 @@ System.register("raytracer", ["vector", "color"], function (exports_3, context_3
                     return this.color;
                 }
             };
-            exports_3("Material", Material);
+            exports_5("Material", Material);
             /** A material that scatters rays, ignoring their incoming angle. */
             MatteMaterial = class MatteMaterial extends Material {
                 colorHit(tracer, hit) {
@@ -292,7 +343,7 @@ System.register("raytracer", ["vector", "color"], function (exports_3, context_3
                     const samplesPerBounce = 4;
                     for (let i = 0; i < samplesPerBounce; i++) {
                         colors.push(this.color);
-                        colors.push(tracer.getRayColor(new Ray(hit.location, hit.normal.add(vector_1.Vector.randomUnit()), hit.ray.previousHits + 1)));
+                        colors.push(tracer.getRayColor(new ray_2.Ray(hit.location, hit.normal.add(vector_2.Vector.randomUnit()), hit.ray.previousHits + 1)));
                     }
                     return color_1.Color.blend(colors);
                 }
@@ -306,7 +357,7 @@ System.register("raytracer", ["vector", "color"], function (exports_3, context_3
                     const samplesPerBounce = 4;
                     for (let i = 0; i < samplesPerBounce; i++) {
                         colors.push(this.color);
-                        colors.push(tracer.getRayColor(new Ray(hit.location, reflection, hit.ray.previousHits + 1)));
+                        colors.push(tracer.getRayColor(new ray_2.Ray(hit.location, reflection, hit.ray.previousHits + 1)));
                     }
                     return color_1.Color.blend(colors);
                 }
@@ -327,8 +378,37 @@ System.register("raytracer", ["vector", "color"], function (exports_3, context_3
                     this.normal = normal.direction();
                 }
             };
-            exports_3("Hit", Hit);
-            Sphere = class Sphere extends Hittable {
+            exports_5("Hit", Hit);
+            Scene = class Scene {
+                constructor(items) {
+                    this.camera = new camera_1.Camera();
+                    this.items = [...items];
+                }
+            };
+            exports_5("Scene", Scene);
+            Item = class Item {
+                constructor(geometry, material) {
+                    this.geometry = geometry;
+                    this.material = material;
+                }
+            };
+            exports_5("Item", Item);
+            /** An object our rays can hit. */
+            Geometry = class Geometry {
+                hit(ray) {
+                    return this.hits(ray)[0] || null;
+                }
+                // hits on this ray that occur in the future (and so will will be drawn).
+                hits(ray) {
+                    return this.allHits(ray).filter(hit => hit.t > 0.0001).sort((a, b) => a.t - b.t);
+                }
+                // all hits on this ray, potentially including ones that occur backwards/in the past
+                allHits(ray) {
+                    return this.hits(ray);
+                }
+            };
+            exports_5("Geometry", Geometry);
+            Sphere = class Sphere extends Geometry {
                 constructor(center, radius, material) {
                     super();
                     this.center = center;
@@ -341,20 +421,22 @@ System.register("raytracer", ["vector", "color"], function (exports_3, context_3
                     const b = 2.0 * oc.dot(ray.direction);
                     const c = oc.dot(oc) - this.radius * this.radius;
                     const discriminant = b * b - 4 * a * c;
-                    const t1 = (-b + Math.sqrt(discriminant)) / (2 * a);
-                    const l1 = ray.at(t1);
-                    if (discriminant > 0) {
-                        const t2 = (-b - Math.sqrt(discriminant)) / (2 * a);
-                        const l2 = ray.at(t2);
-                        return [
-                            new Hit(ray, this, t1, l1, l1.sub(this.center).direction()),
-                            new Hit(ray, this, t2, l2, l2.sub(this.center).direction())
-                        ];
-                    }
-                    else if (discriminant == 0) {
-                        return [
-                            new Hit(ray, this, t1, l1, l1.sub(this.center).direction())
-                        ];
+                    if (discriminant >= 1) {
+                        const t1 = (-b + Math.sqrt(discriminant)) / (2 * a);
+                        const l1 = ray.at(t1);
+                        if (discriminant == 2) {
+                            const t2 = (-b - Math.sqrt(discriminant)) / (2 * a);
+                            const l2 = ray.at(t2);
+                            return [
+                                new Hit(ray, this, t1, l1, l1.sub(this.center).direction()),
+                                new Hit(ray, this, t2, l2, l2.sub(this.center).direction())
+                            ];
+                        }
+                        else {
+                            return [
+                                new Hit(ray, this, t1, l1, l1.sub(this.center).direction())
+                            ];
+                        }
                     }
                     return [];
                 }
@@ -362,9 +444,9 @@ System.register("raytracer", ["vector", "color"], function (exports_3, context_3
         }
     };
 });
-System.register("main", ["raytracer"], function (exports_4, context_4) {
+System.register("main", ["raytracer"], function (exports_6, context_6) {
     "use strict";
-    var __moduleName = context_4 && context_4.id;
+    var __moduleName = context_6 && context_6.id;
     var raytracer_1, main;
     return {
         setters: [

@@ -1,18 +1,20 @@
 /** A vector in number^3 space. */
 export const V = (x: number, y: number, z: number): Vector => new Vector(x, y, z);
 export class Vector {
-    static ZERO = new Vector(+0, +0, +0);
-    static X = new Vector(1, 0, 0);
-    static Y = new Vector(0, 1, 0);
-    static Z = new Vector(0, 0, 1);
+    static ZERO = Object.freeze(new Vector(0, 0, 0));
+    static X    = Object.freeze(new Vector(1, 0, 0));
+    static Y    = Object.freeze(new Vector(0, 1, 0));
+    static Z    = Object.freeze(new Vector(0, 0, 1));
 
     readonly x: number;
     readonly y: number;
     readonly z: number;
   
     constructor(x: number, y: number, z: number) {
-        if (Vector.ZERO && Object.is(x, +0) && Object.is(y, +0) && Object.is(z, +0)) return Vector.ZERO;
-        
+        if (!Number.isFinite(x)) throw new Error(`x is ${x}`);
+        if (!Number.isFinite(y)) throw new Error(`y is ${y}`);
+        if (!Number.isFinite(z)) throw new Error(`z is ${z}`);
+
         this.x = x;
         this.y = y;
         this.z = z;
@@ -45,32 +47,21 @@ export class Vector {
 
     // negation
     negative(): Vector {
-        if (this === Vector.ZERO) return this;
-
         return new Vector(-this.x, -this.y, -this.z);
     }
   
     // addition
     add(other: Vector): Vector {
-        if (this === Vector.ZERO) return other;
-        if (other === Vector.ZERO) return this;
-    
         return new Vector(this.x + other.x, this.y + other.y, this.z + other.z);
     }
     
     // subtraction
     sub(other: Vector): Vector {
-        if (other === Vector.ZERO) return this;
-        if (other === this) return Vector.ZERO;
-    
         return new Vector(this.x - other.x, this.y - other.y, this.z - other.z);
     }
     
     // scale/multiply
     scale(factor: number): Vector {
-        if (factor === 0) return Vector.ZERO;
-        if (factor === 1) return this;
-    
         return new Vector(this.x * factor, this.y * factor, this.z * factor);
     }
 
