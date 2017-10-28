@@ -151,10 +151,10 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
                     const c = oc.dot(oc) - this.radius * this.radius;
                     const discriminant = b * b - 4 * a * c;
                     if (discriminant >= 1) {
-                        const t1 = (-b + Math.sqrt(discriminant)) / (2 * a);
+                        const t1 = (-b - Math.sqrt(discriminant)) / (2 * a);
                         const l1 = ray.at(t1);
                         if (discriminant == 2) {
-                            const t2 = (-b - Math.sqrt(discriminant)) / (2 * a);
+                            const t2 = (-b + Math.sqrt(discriminant)) / (2 * a);
                             const l2 = ray.at(t2);
                             return [
                                 new Hit(ray, t1, l1, l1.sub(this.center).direction()),
@@ -292,10 +292,22 @@ System.register("color", [], function (exports_4, context_4) {
         }
     };
 });
-System.register("raytracer", ["color", "vector", "geometry", "camera"], function (exports_5, context_5) {
+System.register("settings", [], function (exports_5, context_5) {
     "use strict";
     var __moduleName = context_5 && context_5.id;
-    var color_1, vector_3, geometry_2, camera_1, RayTracer, Material, MatteMaterial, ShinyMaterial, GlassMaterial, RayHit, Scene, Item;
+    var maxBounces, maxSamplesPerBounce;
+    return {
+        setters: [],
+        execute: function () {
+            exports_5("maxBounces", maxBounces = 4);
+            exports_5("maxSamplesPerBounce", maxSamplesPerBounce = 8);
+        }
+    };
+});
+System.register("raytracer", ["color", "vector", "geometry", "camera", "settings"], function (exports_6, context_6) {
+    "use strict";
+    var __moduleName = context_6 && context_6.id;
+    var color_1, vector_3, geometry_2, camera_1, settings, RayTracer, Material, MatteMaterial, ShinyMaterial, GlassMaterial, RayHit, Scene, Item;
     return {
         setters: [
             function (color_1_1) {
@@ -309,6 +321,9 @@ System.register("raytracer", ["color", "vector", "geometry", "camera"], function
             },
             function (camera_1_1) {
                 camera_1 = camera_1_1;
+            },
+            function (settings_1) {
+                settings = settings_1;
             }
         ],
         execute: function () {
@@ -317,7 +332,6 @@ System.register("raytracer", ["color", "vector", "geometry", "camera"], function
                     this.width = 400;
                     this.height = 300;
                     this.scene = new Scene();
-                    this.maxBounces = 4;
                     this.canvas = document.createElement('canvas');
                     this.canvas.width = this.width;
                     this.canvas.height = this.height;
@@ -329,9 +343,9 @@ System.register("raytracer", ["color", "vector", "geometry", "camera"], function
                     let lastTime = Date.now();
                     const size = Math.max(this.width, this.height);
                     const chunkSize = Math.floor(size / 32);
-                    // how much we crop inside the potential camera frame on each side to match the target aspect ratio
-                    const xCropping = (size - this.width) / 2;
-                    const yCropping = (size - this.height) / 2;
+                    // how much we pad inside the potential camera frame on each side to match the target aspect ratio
+                    const xPadding = (size - this.width) / 2;
+                    const yPadding = (size - this.height) / 2;
                     for (let yOffset = 0; yOffset < this.height; yOffset += chunkSize) {
                         for (let xOffset = 0; xOffset < this.width; xOffset += chunkSize) {
                             for (let x = xOffset; x < this.width && x < xOffset + chunkSize; x++) {
@@ -347,8 +361,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera"], function
                                     for (let i = 0; i < samplesPerPixel; i++) {
                                         const dx = Math.random() - 0.5;
                                         const dy = Math.random() - 0.5;
-                                        // BUG: this doesn't account for aspect ratio!
-                                        colors.push(this.getRayColor(this.scene.camera.getRay((xCropping + x + dx) / (size - 1), (yCropping + y + dy) / (size - 1))));
+                                        colors.push(this.getRayColor(this.scene.camera.getRay((xPadding + x + dx) / (size - 1), (yPadding + y + dy) / (size - 1))));
                                     }
                                     const pixel = color_1.Color.blend(colors); //.pow(0.45);
                                     const offset = (y * this.width + x) * 4;
@@ -365,7 +378,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera"], function
                     this.output.src = dataUri;
                 }
                 getRayColor(ray, previousHit) {
-                    if ((previousHit ? previousHit.previousHits : 0) + 1 >= this.maxBounces) {
+                    if ((previousHit ? previousHit.previousHits : 0) + 1 >= settings.maxBounces) {
                         return color_1.Color.BLACK;
                     }
                     let closestHit;
@@ -386,7 +399,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera"], function
                     return color_1.RGB(a, 0.3 + a, 0.5 + a * 2);
                 }
             };
-            exports_5("RayTracer", RayTracer);
+            exports_6("RayTracer", RayTracer);
             /** A material a Hittable can be made of, determining how it's rendered. */
             Material = class Material {
                 constructor(color) {
@@ -397,15 +410,19 @@ System.register("raytracer", ["color", "vector", "geometry", "camera"], function
                     return this.color;
                 }
             };
-            exports_5("Material", Material);
+            exports_6("Material", Material);
             /** A material that scatters rays, ignoring their incoming angle. */
             MatteMaterial = class MatteMaterial extends Material {
+                constructor() {
+                    super(...arguments);
+                    this.fuzz = 0.5;
+                }
                 hitColor(tracer, rayHit) {
                     const colors = [];
-                    const samplesPerBounce = Math.ceil(8 / (rayHit.previousHits + 1));
+                    const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / (rayHit.previousHits + 1));
                     for (let i = 0; i < samplesPerBounce; i++) {
                         colors.push([1, this.color]);
-                        const scatteredRay = new geometry_2.Ray(rayHit.hit.location, rayHit.hit.normal.add(vector_3.Vector.randomUnit()));
+                        const scatteredRay = new geometry_2.Ray(rayHit.hit.location, rayHit.hit.normal.add(vector_3.Vector.randomUnit().scale(this.fuzz)).direction());
                         colors.push([1, tracer.getRayColor(scatteredRay, rayHit)]);
                     }
                     return color_1.Color.blend(colors);
@@ -413,15 +430,19 @@ System.register("raytracer", ["color", "vector", "geometry", "camera"], function
             };
             /** A material that reflects rays. */
             ShinyMaterial = class ShinyMaterial extends Material {
+                constructor() {
+                    super(...arguments);
+                    this.fuzz = 0.5;
+                }
                 hitColor(tracer, rayHit) {
                     const direction = rayHit.hit.ray.direction;
                     const reflection = direction.sub(rayHit.hit.normal.scale(2 * direction.dot(rayHit.hit.normal))).direction();
                     const colors = [];
-                    const samplesPerBounce = 1;
+                    const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / (rayHit.previousHits + 1));
                     for (let i = 0; i < samplesPerBounce; i++) {
                         colors.push([1, this.color]);
-                        const reflectedRay = new geometry_2.Ray(rayHit.hit.location, reflection);
-                        colors.push([1, tracer.getRayColor(reflectedRay, rayHit)]);
+                        const reflectedRay = new geometry_2.Ray(rayHit.hit.location, reflection.add(vector_3.Vector.randomUnit().scale(this.fuzz)).direction());
+                        colors.push([2, tracer.getRayColor(reflectedRay, rayHit)]);
                     }
                     return color_1.Color.blend(colors);
                 }
@@ -441,7 +462,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera"], function
                     this.previousHits = previousHit ? previousHit.previousHits + 1 : 0;
                 }
             };
-            exports_5("RayHit", RayHit);
+            exports_6("RayHit", RayHit);
             Scene = class Scene {
                 constructor() {
                     this.items = [
@@ -454,7 +475,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera"], function
                     this.camera = new camera_1.Camera();
                 }
             };
-            exports_5("Scene", Scene);
+            exports_6("Scene", Scene);
             Item = class Item {
                 constructor(geometry, material) {
                     this.geometry = geometry;
@@ -464,13 +485,13 @@ System.register("raytracer", ["color", "vector", "geometry", "camera"], function
                     return `${this.material} ${this.geometry}`;
                 }
             };
-            exports_5("Item", Item);
+            exports_6("Item", Item);
         }
     };
 });
-System.register("main", ["raytracer"], function (exports_6, context_6) {
+System.register("main", ["raytracer"], function (exports_7, context_7) {
     "use strict";
-    var __moduleName = context_6 && context_6.id;
+    var __moduleName = context_7 && context_7.id;
     var raytracer_1, main;
     return {
         setters: [
@@ -484,7 +505,6 @@ System.register("main", ["raytracer"], function (exports_6, context_6) {
                 document.body.appendChild(tracer.output);
                 document.body.appendChild(tracer.canvas);
                 tracer.render();
-                setInterval(() => tracer.render(), 30000);
             };
             main();
         }

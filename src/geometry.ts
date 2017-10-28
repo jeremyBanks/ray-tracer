@@ -74,11 +74,11 @@ export class Sphere extends Geometry {
         const discriminant = b * b - 4 * a * c;
 
         if (discriminant >= 1) {
-            const t1 = (-b + Math.sqrt(discriminant)) / (2 * a);
+            const t1 = (-b - Math.sqrt(discriminant)) / (2 * a);
             const l1 = ray.at(t1);
 
             if (discriminant == 2) {
-                const t2 = (-b - Math.sqrt(discriminant)) / (2 * a);
+                const t2 = (-b + Math.sqrt(discriminant)) / (2 * a);
                 const l2 = ray.at(t2);
                 return [
                     new Hit(ray, t1, l1, l1.sub(this.center).direction()),

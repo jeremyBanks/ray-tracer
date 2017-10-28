@@ -2,6 +2,7 @@ import {Color, RGB} from './color';
 import {Vector, V} from './vector';
 import {Ray, Hit, Geometry, Sphere} from './geometry';
 import {Camera} from './camera';
+import * as settings from './settings';
 
 
 export class RayTracer {
@@ -71,11 +72,9 @@ export class RayTracer {
         const dataUri = this.canvas.toDataURL();
         this.output.src = dataUri;
     }
-    
-    readonly maxBounces = 4;
 
     getRayColor(ray: Ray, previousHit?: RayHit): Color {
-        if ((previousHit ? previousHit.previousHits : 0) + 1 >= this.maxBounces) {
+        if ((previousHit ? previousHit.previousHits : 0) + 1 >= settings.maxBounces) {
             return Color.BLACK;
         }
 
@@ -117,12 +116,14 @@ export class Material {
 
 /** A material that scatters rays, ignoring their incoming angle. */
 class MatteMaterial extends Material {
+    fuzz = 0.5;
+
     hitColor(tracer: RayTracer, rayHit: RayHit): Color {
         const colors: [number, Color][] = [];
-        const samplesPerBounce = Math.ceil(8 / (rayHit.previousHits + 1));
+        const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / (rayHit.previousHits + 1));
         for (let i = 0; i < samplesPerBounce; i++) {
             colors.push([1, this.color]);
-            const scatteredRay = new Ray(rayHit.hit.location, rayHit.hit.normal.add(Vector.randomUnit()));
+            const scatteredRay = new Ray(rayHit.hit.location, rayHit.hit.normal.add(Vector.randomUnit().scale(this.fuzz)).direction());
             colors.push([1, tracer.getRayColor(scatteredRay, rayHit)]);
         }
         return Color.blend(colors);
@@ -131,15 +132,17 @@ class MatteMaterial extends Material {
 
 /** A material that reflects rays. */
 class ShinyMaterial extends Material {
+    fuzz = 0.5;
+
     hitColor(tracer: RayTracer, rayHit: RayHit): Color {
         const direction = rayHit.hit.ray.direction;
         const reflection = direction.sub(rayHit.hit.normal.scale(2 * direction.dot(rayHit.hit.normal))).direction();
         const colors: [number, Color][] = [];
-        const samplesPerBounce = 1;
+        const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / (rayHit.previousHits + 1));
         for (let i = 0; i < samplesPerBounce; i++) {
             colors.push([1, this.color]);
-            const reflectedRay = new Ray(rayHit.hit.location, reflection);
-            colors.push([1, tracer.getRayColor(reflectedRay, rayHit)]);
+            const reflectedRay = new Ray(rayHit.hit.location, reflection.add(Vector.randomUnit().scale(this.fuzz)).direction());
+            colors.push([2, tracer.getRayColor(reflectedRay, rayHit)]);
         }
         return Color.blend(colors);
     }

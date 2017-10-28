@@ -94,6 +94,10 @@ declare module "color" {
         static blend(colors: (Color | [number, Color])[]): Color;
     }
 }
+declare module "settings" {
+    export const maxBounces = 4;
+    export const maxSamplesPerBounce = 8;
+}
 declare module "raytracer" {
     import { Color } from "color";
     import { Ray, Hit, Geometry } from "geometry";
@@ -108,7 +112,6 @@ declare module "raytracer" {
         readonly scene: Scene;
         constructor();
         render(): Promise<void>;
-        readonly maxBounces: number;
         getRayColor(ray: Ray, previousHit?: RayHit): Color;
     }
     /** A material a Hittable can be made of, determining how it's rendered. */
