@@ -30,9 +30,9 @@ export class RayTracer {
         const size = Math.max(this.width, this.height);
         const chunkSize = Math.floor(size / 32);
 
-        // how much we crop inside the potential camera frame on each side to match the target aspect ratio
-        const xCropping = (size - this.width) / 2;
-        const yCropping = (size - this.height) / 2;
+        // how much we pad inside the potential camera frame on each side to match the target aspect ratio
+        const xPadding = (size - this.width) / 2;
+        const yPadding = (size - this.height) / 2;
 
         for (let yOffset = 0; yOffset < this.height; yOffset += chunkSize) {
             for (let xOffset = 0; xOffset < this.width; xOffset += chunkSize) {
@@ -50,11 +50,10 @@ export class RayTracer {
                         for (let i = 0; i < samplesPerPixel; i++) {
                             const dx = Math.random() - 0.5;
                             const dy = Math.random() - 0.5;
-                            // BUG: this doesn't account for aspect ratio!
                             colors.push(this.getRayColor(
                                 this.scene.camera.getRay(
-                                    (xCropping + x + dx) / (size - 1),
-                                    (yCropping + y + dy) / (size - 1))));
+                                    (xPadding + x + dx) / (size - 1),
+                                    (yPadding + y + dy) / (size - 1))));
                         }
                         const pixel = Color.blend(colors); //.pow(0.45);
         
