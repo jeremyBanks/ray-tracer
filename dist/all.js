@@ -292,22 +292,37 @@ System.register("color", [], function (exports_4, context_4) {
         }
     };
 });
-System.register("settings", [], function (exports_5, context_5) {
+System.register("util", [], function (exports_5, context_5) {
     "use strict";
     var __moduleName = context_5 && context_5.id;
-    var maxBounces, maxSamplesPerBounce;
+    var randomChoice;
     return {
         setters: [],
         execute: function () {
-            exports_5("maxBounces", maxBounces = 4);
-            exports_5("maxSamplesPerBounce", maxSamplesPerBounce = 8);
+            exports_5("randomChoice", randomChoice = (choices) => {
+                const i = Math.floor(Math.random() * choices.length);
+                return choices[i];
+            });
         }
     };
 });
-System.register("raytracer", ["color", "vector", "geometry", "camera", "settings"], function (exports_6, context_6) {
+System.register("settings", [], function (exports_6, context_6) {
     "use strict";
     var __moduleName = context_6 && context_6.id;
-    var color_1, vector_3, geometry_2, camera_1, settings, RayTracer, Material, MatteMaterial, ShinyMaterial, GlassMaterial, RayHit, Scene, Item;
+    var samplesPerPixel, maxBounces, maxSamplesPerBounce;
+    return {
+        setters: [],
+        execute: function () {
+            exports_6("samplesPerPixel", samplesPerPixel = 32);
+            exports_6("maxBounces", maxBounces = 16);
+            exports_6("maxSamplesPerBounce", maxSamplesPerBounce = 8);
+        }
+    };
+});
+System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "settings"], function (exports_7, context_7) {
+    "use strict";
+    var __moduleName = context_7 && context_7.id;
+    var color_1, vector_3, geometry_2, camera_1, util_1, settings, RayTracer, Material, MatteMaterial, ShinyMaterial, GlassMaterial, RayHit, Scene, Item;
     return {
         setters: [
             function (color_1_1) {
@@ -321,6 +336,9 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "settings
             },
             function (camera_1_1) {
                 camera_1 = camera_1_1;
+            },
+            function (util_1_1) {
+                util_1 = util_1_1;
             },
             function (settings_1) {
                 settings = settings_1;
@@ -356,9 +374,8 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "settings
                                         await new Promise(r => setTimeout(r));
                                         lastTime = now;
                                     }
-                                    const samplesPerPixel = 8;
                                     const colors = [];
-                                    for (let i = 0; i < samplesPerPixel; i++) {
+                                    for (let i = 0; i < settings.samplesPerPixel; i++) {
                                         const dx = Math.random() - 0.5;
                                         const dy = Math.random() - 0.5;
                                         colors.push(this.getRayColor(this.scene.camera.getRay((xPadding + x + dx) / (size - 1), (yPadding + y + dy) / (size - 1))));
@@ -399,7 +416,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "settings
                     return color_1.RGB(a, 0.3 + a, 0.5 + a * 2);
                 }
             };
-            exports_6("RayTracer", RayTracer);
+            exports_7("RayTracer", RayTracer);
             /** A material a Hittable can be made of, determining how it's rendered. */
             Material = class Material {
                 constructor(color) {
@@ -410,12 +427,12 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "settings
                     return this.color;
                 }
             };
-            exports_6("Material", Material);
+            exports_7("Material", Material);
             /** A material that scatters rays, ignoring their incoming angle. */
             MatteMaterial = class MatteMaterial extends Material {
                 constructor() {
                     super(...arguments);
-                    this.fuzz = 0.5;
+                    this.fuzz = 0.5 + 0.5 * Math.random();
                 }
                 hitColor(tracer, rayHit) {
                     const colors = [];
@@ -432,7 +449,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "settings
             ShinyMaterial = class ShinyMaterial extends Material {
                 constructor() {
                     super(...arguments);
-                    this.fuzz = 0.5;
+                    this.fuzz = Math.random();
                 }
                 hitColor(tracer, rayHit) {
                     const direction = rayHit.hit.ray.direction;
@@ -462,20 +479,22 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "settings
                     this.previousHits = previousHit ? previousHit.previousHits + 1 : 0;
                 }
             };
-            exports_6("RayHit", RayHit);
+            exports_7("RayHit", RayHit);
             Scene = class Scene {
                 constructor() {
                     this.items = [
-                        new Item(new geometry_2.Sphere(vector_3.V(+125, 50, 1100), 50), new ShinyMaterial(color_1.Color.GREEN)),
-                        new Item(new geometry_2.Sphere(vector_3.V(0, 50, 1100), 50), new ShinyMaterial(color_1.Color.RED)),
-                        new Item(new geometry_2.Sphere(vector_3.V(-125, 50, 1100), 50), new MatteMaterial(color_1.Color.BLUE)),
-                        new Item(new geometry_2.Sphere(vector_3.V(0, -1000, 2000), 1000), new MatteMaterial(color_1.Color.BLACK)),
-                        new Item(new geometry_2.Sphere(vector_3.V(-50, 500, 1400), 400), new MatteMaterial(color_1.Color.WHITE)),
+                        new Item(new geometry_2.Sphere(vector_3.V(-50, 500, 1400), 400), new MatteMaterial(color_1.Color.YELLOW)),
                     ];
                     this.camera = new camera_1.Camera();
+                    for (let i = 0; i < 12; i++) {
+                        const geometry = new geometry_2.Sphere(vector_3.V(-200 + (i % 4) * 120, 50 - 130 * Math.floor(i / 4), 1100), 50);
+                        const color = util_1.randomChoice([color_1.Color.RED, color_1.Color.BLUE, color_1.Color.GREEN, color_1.Color.CYAN, color_1.Color.MAGENTA, color_1.Color.YELLOW]);
+                        const material = new (util_1.randomChoice([ShinyMaterial, MatteMaterial]))(color);
+                        this.items.push(new Item(geometry, material));
+                    }
                 }
             };
-            exports_6("Scene", Scene);
+            exports_7("Scene", Scene);
             Item = class Item {
                 constructor(geometry, material) {
                     this.geometry = geometry;
@@ -485,13 +504,13 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "settings
                     return `${this.material} ${this.geometry}`;
                 }
             };
-            exports_6("Item", Item);
+            exports_7("Item", Item);
         }
     };
 });
-System.register("main", ["raytracer"], function (exports_7, context_7) {
+System.register("main", ["raytracer"], function (exports_8, context_8) {
     "use strict";
-    var __moduleName = context_7 && context_7.id;
+    var __moduleName = context_8 && context_8.id;
     var raytracer_1, main;
     return {
         setters: [

@@ -2,6 +2,7 @@ import {Color, RGB} from './color';
 import {Vector, V} from './vector';
 import {Ray, Hit, Geometry, Sphere} from './geometry';
 import {Camera} from './camera';
+import {randomChoice} from './util';
 import * as settings from './settings';
 
 
@@ -46,9 +47,8 @@ export class RayTracer {
                             lastTime = now;
                         }
 
-                        const samplesPerPixel = 8;
                         const colors: Color[] = [];
-                        for (let i = 0; i < samplesPerPixel; i++) {
+                        for (let i = 0; i < settings.samplesPerPixel; i++) {
                             const dx = Math.random() - 0.5;
                             const dy = Math.random() - 0.5;
                             colors.push(this.getRayColor(
@@ -116,7 +116,7 @@ export class Material {
 
 /** A material that scatters rays, ignoring their incoming angle. */
 class MatteMaterial extends Material {
-    fuzz = 0.5;
+    fuzz = 0.5 + 0.5 * Math.random();
 
     hitColor(tracer: RayTracer, rayHit: RayHit): Color {
         const colors: [number, Color][] = [];
@@ -132,7 +132,7 @@ class MatteMaterial extends Material {
 
 /** A material that reflects rays. */
 class ShinyMaterial extends Material {
-    fuzz = 0.5;
+    fuzz = Math.random();
 
     hitColor(tracer: RayTracer, rayHit: RayHit): Color {
         const direction = rayHit.hit.ray.direction;
@@ -173,14 +173,19 @@ export class RayHit {
 
 export class Scene {
     items: Item[] = [
-        new Item(new Sphere(V(+125,    50, 1100),   50), new ShinyMaterial(Color.GREEN)),
-        new Item(new Sphere(V(   0,    50, 1100),   50), new ShinyMaterial(Color.RED)),
-        new Item(new Sphere(V(-125,    50, 1100),   50), new MatteMaterial(Color.BLUE)),
-        new Item(new Sphere(V(   0, -1000, 2000), 1000), new MatteMaterial(Color.BLACK)),
-        new Item(new Sphere(V( -50,   500, 1400),  400), new MatteMaterial(Color.WHITE)),
+        new Item(new Sphere(V( -50,   500, 1400),  400), new MatteMaterial(Color.YELLOW)),
     ];
 
     camera = new Camera();
+
+    constructor() {
+        for (let i = 0; i < 12; i++) {
+            const geometry = new Sphere(V(-200 + (i % 4) * 120, 50 - 130 * Math.floor(i / 4), 1100), 50);
+            const color = randomChoice([Color.RED, Color.BLUE, Color.GREEN, Color.CYAN, Color.MAGENTA, Color.YELLOW]);
+            const material = new (randomChoice([ShinyMaterial, MatteMaterial]) as any)(color) as Material;
+            this.items.push(new Item(geometry, material));
+        }
+    }
 }
 
 

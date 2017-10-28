@@ -94,8 +94,12 @@ declare module "color" {
         static blend(colors: (Color | [number, Color])[]): Color;
     }
 }
+declare module "util" {
+    export const randomChoice: <T>(choices: T[]) => T;
+}
 declare module "settings" {
-    export const maxBounces = 4;
+    export const samplesPerPixel = 32;
+    export const maxBounces = 16;
     export const maxSamplesPerBounce = 8;
 }
 declare module "raytracer" {
@@ -131,6 +135,7 @@ declare module "raytracer" {
     export class Scene {
         items: Item[];
         camera: Camera;
+        constructor();
     }
     export class Item {
         geometry: Geometry;
