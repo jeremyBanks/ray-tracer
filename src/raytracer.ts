@@ -51,8 +51,10 @@ export class RayTracer {
         }
         
         // background
-        if (ray.direction.y > 0.5) return Color.WHITE;
-        else return Color.BLACK;
+        if (ray.direction.y > 0) {
+            const i = Math.pow(1 - ray.direction.y, 2.0);
+            return RGB(i, i, i);
+        } else return Color.BLACK;
     }
 }
 

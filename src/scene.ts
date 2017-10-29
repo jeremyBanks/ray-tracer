@@ -10,22 +10,22 @@ export class Scene {
     camera = new Camera();
 
     constructor() {
-        this.items.push(
-            new Item(
-                new Plane(V(0, -450, 0), Vector.Y),
-                new MatteMaterial(RGB(0.15, 0.15, 0.15), 1.0, 0.5)));
-        
-        this.items.push(
-            new Item(
-                new Plane(V(0, 0, 5000), Vector.Z.negative()),
-                new ShinyMaterial(RGB(0.5, 0.5, 0.5), 1.0, 0.1)));
+        const ground = new Item(
+                new Plane(V(0, -500, 0), Vector.Y),
+                new MatteMaterial(RGB(0.9, 1.0, 0.6), 1.0, 0.9));
+
+        const wall = new Item(
+            new Plane(V(-500, 0, 0), Vector.X),
+            new ShinyMaterial(RGB(0.75, 0.75, 0.75), 1.0, 0.1));
+
+        this.items.push(ground, wall);
 
         for (let x = -8; x < 8; x++)
         for (let y = -8; y < 8; y++)
         for (let z = -8; z < 8; z++) {
             if (Math.random() < 0.95) continue;
             
-            const position = V(x * 120, 130 * y, 2000 + 200 * z);
+            const position = V(x * 120, 130 * y, 4100 + 200 * z);
             const geometry = new Sphere(position, Math.random() * 30 + 30);
 
             const color = randomChoice([Color.RED, Color.BLUE, Color.GREEN ]);

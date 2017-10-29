@@ -440,14 +440,15 @@ System.register("scene", ["camera", "util", "color", "vector", "material", "geom
                 constructor() {
                     this.items = [];
                     this.camera = new camera_1.Camera();
-                    this.items.push(new Item(new geometry_2.Plane(vector_4.V(0, -450, 0), vector_4.Vector.Y), new material_1.MatteMaterial(color_2.RGB(0.15, 0.15, 0.15), 1.0, 0.5)));
-                    this.items.push(new Item(new geometry_2.Plane(vector_4.V(0, 0, 5000), vector_4.Vector.Z.negative()), new material_1.ShinyMaterial(color_2.RGB(0.5, 0.5, 0.5), 1.0, 0.1)));
+                    const ground = new Item(new geometry_2.Plane(vector_4.V(0, -500, 0), vector_4.Vector.Y), new material_1.MatteMaterial(color_2.RGB(0.9, 1.0, 0.6), 1.0, 0.9));
+                    const wall = new Item(new geometry_2.Plane(vector_4.V(-500, 0, 0), vector_4.Vector.X), new material_1.ShinyMaterial(color_2.RGB(0.75, 0.75, 0.75), 1.0, 0.1));
+                    this.items.push(ground, wall);
                     for (let x = -8; x < 8; x++)
                         for (let y = -8; y < 8; y++)
                             for (let z = -8; z < 8; z++) {
                                 if (Math.random() < 0.95)
                                     continue;
-                                const position = vector_4.V(x * 120, 130 * y, 2000 + 200 * z);
+                                const position = vector_4.V(x * 120, 130 * y, 4100 + 200 * z);
                                 const geometry = new geometry_2.Sphere(position, Math.random() * 30 + 30);
                                 const color = util_1.randomChoice([color_2.Color.RED, color_2.Color.BLUE, color_2.Color.GREEN]);
                                 const material = new (util_1.randomChoice([material_1.ShinyMaterial, material_1.MatteMaterial]))(color, 0.5 * Math.random(), Math.random());
@@ -518,8 +519,10 @@ System.register("raytracer", ["color", "geometry"], function (exports_8, context
                         return color_3.Color.multiply(blendColor, deflectedColor);
                     }
                     // background
-                    if (ray.direction.y > 0.5)
-                        return color_3.Color.WHITE;
+                    if (ray.direction.y > 0) {
+                        const i = Math.pow(1 - ray.direction.y, 2.0);
+                        return color_3.RGB(i, i, i);
+                    }
                     else
                         return color_3.Color.BLACK;
                 }
