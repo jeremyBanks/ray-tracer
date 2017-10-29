@@ -110,8 +110,8 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
                 }
                 // The position of the ray at a given time.
                 at(t) {
-                    return new vector_1.Vector(this.origin.x + this.direction.x * t, this.origin.y + this.direction.y * t, this.origin.z + this.direction.z * t)
-                        || this.origin.add(this.direction.scale(t));
+                    return new vector_1.Vector(this.origin.x + this.direction.x * t, this.origin.y + this.direction.y * t, this.origin.z + this.direction.z * t);
+                    // inlined: this.origin.add(this.direction.scale(t));
                 }
             };
             exports_2("Ray", Ray);
@@ -132,15 +132,13 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
                     this.radius = radius;
                 }
                 firstHit(ray) {
-                    return this.hits(ray)[0] || null;
-                }
-                // hits on this ray that occur in the future (and so will will be drawn).
-                hits(ray) {
-                    return this.allHits(ray).filter(hit => hit.t > epsilon).sort((a, b) => a.t - b.t);
-                }
-                // all hits on this ray, potentially including ones that occur backwards/in the past
-                allHits(ray) {
-                    return this.hits(ray);
+                    let first = null;
+                    for (const hit of this.allHits(ray)) {
+                        if (hit.t > epsilon && (!first || hit.t < first.t)) {
+                            first = hit;
+                        }
+                    }
+                    return first;
                 }
             };
             exports_2("Geometry", Geometry);
@@ -449,7 +447,7 @@ System.register("scene", ["camera", "util", "color", "vector", "material", "geom
                                 if (Math.random() < 0.95)
                                     continue;
                                 const position = vector_4.V(x * 120, 130 * y, 4100 + 200 * z);
-                                const geometry = new geometry_2.Sphere(position, Math.random() * 30 + 30);
+                                const geometry = new geometry_2.Sphere(position, Math.random() * 230 + 30);
                                 const color = util_1.randomChoice([color_2.Color.RED, color_2.Color.BLUE, color_2.Color.GREEN]);
                                 const material = new (util_1.randomChoice([material_1.ShinyMaterial, material_1.MatteMaterial]))(color, 0.5 * Math.random(), Math.random());
                                 this.items.push(new Item(geometry, material));
@@ -486,17 +484,34 @@ System.register("raytracer", ["color", "geometry"], function (exports_8, context
         execute: function () {
             RayTracer = class RayTracer {
                 constructor(scene) {
-                    this.maxSamplesPerBounce = 1;
-                    this.maxBounces = 4;
+                    this.maxSamplesPerBounce = 2;
+                    this.maxBounces = 8;
                     this.scene = scene;
                 }
                 getRayColor(ray, previousHit) {
                     if ((previousHit ? previousHit.previousCount : 0) + 1 >= this.maxBounces) {
                         return color_3.Color.BLACK;
                     }
+                    // XXX: it's unclear when/if this is actually helping more than it hurts.
+                    const itemsByMinDistance = this.scene.items.map(item => {
+                        // the minimum possible t at which this object could be encountered.
+                        // may be negative the ray's origin is within those bounds,
+                        // or negative infinity if the item has no bounds.
+                        const dx = item.geometry.position.x - ray.origin.x;
+                        const dy = item.geometry.position.y - ray.origin.y;
+                        const dz = item.geometry.position.z - ray.origin.z;
+                        const minDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                        // inlined: item.geometry.position.sub(ray.origin).magnitude() - item.geometry.radius;
+                        return { item, minDistance };
+                    }).sort((a, b) => a.minDistance - b.minDistance);
                     let closestHit;
                     let closestHitItem;
-                    for (const item of this.scene.items) {
+                    for (const { item, minDistance } of itemsByMinDistance) {
+                        if (closestHit && minDistance >= closestHit.t) {
+                            // we're looking at objects that will only appear behind
+                            // the hit we already have.
+                            break;
+                        }
                         const hit = item.geometry.firstHit(ray);
                         if (hit && (!closestHit || hit.t < closestHit.t)) {
                             closestHit = hit;

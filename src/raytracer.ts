@@ -7,8 +7,8 @@ import {Ray, Hit} from 'geometry';
 export class RayTracer {
     readonly scene: Scene;
 
-    readonly maxSamplesPerBounce = 1;
-    readonly maxBounces = 4;
+    readonly maxSamplesPerBounce = 2;
+    readonly maxBounces = 8;
 
     constructor(scene: Scene) {
         this.scene = scene;
@@ -19,17 +19,37 @@ export class RayTracer {
             return Color.BLACK;
         }
 
+        // XXX: it's unclear when/if this is actually helping more than it hurts.
+        const itemsByMinDistance = this.scene.items.map(item => {
+            // the minimum possible t at which this object could be encountered.
+            // may be negative the ray's origin is within those bounds,
+            // or negative infinity if the item has no bounds.
+            const dx = item.geometry.position.x - ray.origin.x;
+            const dy = item.geometry.position.y - ray.origin.y;
+            const dz = item.geometry.position.z - ray.origin.z;
+            const minDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            // inlined: item.geometry.position.sub(ray.origin).magnitude() - item.geometry.radius;
+            return {item, minDistance};
+        }).sort((a, b) => a.minDistance - b.minDistance);
+
         let closestHit: Hit | undefined;
         let closestHitItem: Item | undefined;
 
-        for (const item of this.scene.items) {
-            const hit = item.geometry.firstHit(ray)
+        for (const {item, minDistance} of itemsByMinDistance) {
+            if (closestHit && minDistance >= closestHit.t) {
+                // we're looking at objects that will only appear behind
+                // the hit we already have.
+                break;
+            }
+
+            const hit = item.geometry.firstHit(ray);
+
             if (hit && (!closestHit || hit.t < closestHit.t)) {
                 closestHit = hit;
                 closestHitItem = item;
             }
         }
-        
+
         if (closestHit && closestHitItem) {
             const tracedHit = new TracedHit(closestHit, closestHitItem, previousHit);
             const material = closestHitItem.material;

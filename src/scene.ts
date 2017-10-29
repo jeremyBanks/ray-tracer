@@ -26,8 +26,7 @@ export class Scene {
             if (Math.random() < 0.95) continue;
             
             const position = V(x * 120, 130 * y, 4100 + 200 * z);
-            const geometry = new Sphere(position, Math.random() * 30 + 30);
-
+            const geometry = new Sphere(position, Math.random() * 230 + 30);
             const color = randomChoice([Color.RED, Color.BLUE, Color.GREEN ]);
             const material = new (randomChoice([ShinyMaterial, MatteMaterial]) as any)(color, 0.5 * Math.random(), Math.random()) as Material;
             this.items.push(new Item(geometry, material));

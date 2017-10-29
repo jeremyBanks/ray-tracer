@@ -20,9 +20,8 @@ export class Ray {
         return new Vector(
             this.origin.x + this.direction.x * t,
             this.origin.y + this.direction.y * t,
-            this.origin.z + this.direction.z * t)
-        // inlining:
-        || this.origin.add(this.direction.scale(t))
+            this.origin.z + this.direction.z * t);
+        // inlined: this.origin.add(this.direction.scale(t));
     }
 }
 
@@ -56,23 +55,21 @@ export abstract class Geometry {
     }
 
     firstHit(ray: Ray): Hit | null {
-        return this.hits(ray)[0] || null;
+        let first: Hit | null = null;
+        for (const hit of this.allHits(ray)) {
+            if (hit.t > epsilon && (!first || hit.t < first.t)) {
+                first = hit;
+            }
+        }
+        return first;
     }
 
-    // hits on this ray that occur in the future (and so will will be drawn).
-    hits(ray: Ray): Hit[] {
-        return this.allHits(ray).filter(hit => hit.t > epsilon).sort((a, b) => a.t - b.t);
-    }
-
-    // all hits on this ray, potentially including ones that occur backwards/in the past
-    allHits(ray: Ray): Hit[] {
-        return this.hits(ray);
-    }
+    // all hits on this ray, optionally including ones that occur backwards/in the past
+    abstract allHits(ray: Ray): Hit[];
 }
 
 
 export class Sphere extends Geometry {
-
     allHits(ray: Ray): Hit[] { 
         const oc = ray.origin.sub(this.position);
         const a = ray.direction.dot(ray.direction);

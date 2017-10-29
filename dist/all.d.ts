@@ -46,8 +46,7 @@ declare module "geometry" {
         readonly radius: number;
         constructor(position: Vector, radius?: number);
         firstHit(ray: Ray): Hit | null;
-        hits(ray: Ray): Hit[];
-        allHits(ray: Ray): Hit[];
+        abstract allHits(ray: Ray): Hit[];
     }
     export class Sphere extends Geometry {
         allHits(ray: Ray): Hit[];
