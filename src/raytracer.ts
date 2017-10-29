@@ -7,70 +7,10 @@ import * as settings from './settings';
 
 
 export class RayTracer {
-    readonly canvas: HTMLCanvasElement;
-    readonly context: CanvasRenderingContext2D;
-    readonly image: ImageData;
-    readonly output: HTMLImageElement;
+    readonly scene: Scene;
 
-    readonly width = 400;
-    readonly height = 300;
-
-    readonly scene = new Scene();
-
-    constructor() {
-        this.canvas = document.createElement('canvas');
-        this.canvas.width = this.width;
-        this.canvas.height = this.height;
-        this.context = this.canvas.getContext('2d') as CanvasRenderingContext2D;
-        this.image = this.context.createImageData(this.width, this.height);
-
-        this.output = document.createElement('img');
-    }
-
-    async render() {
-        let lastTime = Date.now();
-        const size = Math.max(this.width, this.height);
-        const chunkSize = Math.floor(size / 32);
-
-        // how much we pad inside the potential camera frame on each side to match the target aspect ratio
-        const xPadding = (size - this.width) / 2;
-        const yPadding = (size - this.height) / 2;
-
-        for (let yOffset = 0; yOffset < this.height; yOffset += chunkSize) {
-            for (let xOffset = 0; xOffset < this.width; xOffset += chunkSize) {
-                for (let x = xOffset; x < this.width && x < xOffset + chunkSize; x++) {   
-                    for (let y = yOffset; y < this.height && y < yOffset + chunkSize; y++) {                     
-                        const now = Date.now();
-                        if (now - lastTime > 250) {
-                            this.context.putImageData(this.image, 0, 0);
-                            await new Promise(r => setTimeout(r));
-                            lastTime = now;
-                        }
-
-                        const colors: Color[] = [];
-                        for (let i = 0; i < settings.samplesPerPixel; i++) {
-                            const dx = Math.random() - 0.5;
-                            const dy = Math.random() - 0.5;
-                            colors.push(this.getRayColor(
-                                this.scene.camera.getRay(
-                                    (xPadding + x + dx) / (size - 1),
-                                    (yPadding + y + dy) / (size - 1))));
-                        }
-                        const pixel = Color.blend(colors); //.pow(0.45);
-        
-                        const offset = (y * this.width + x) * 4;
-                        this.image.data[offset + 0] = pixel.r8;
-                        this.image.data[offset + 1] = pixel.g8;
-                        this.image.data[offset + 2] = pixel.b8;
-                        this.image.data[offset + 3] = 0xFF;
-                    }
-                }
-            }
-        }
-
-        this.context.putImageData(this.image, 0, 0);
-        const dataUri = this.canvas.toDataURL();
-        this.output.src = dataUri;
+    constructor(scene: Scene) {
+        this.scene = scene;
     }
 
     getRayColor(ray: Ray, previousHit?: RayHit): Color {
@@ -103,7 +43,7 @@ export class RayTracer {
 
 /** A material a Hittable can be made of, determining how it's rendered. */
 export class Material {
-    color: Color = Color.MAGENTA;
+    readonly color: Color = Color.MAGENTA;
 
     constructor(color: Color) {
         this.color = color;
@@ -114,9 +54,10 @@ export class Material {
     }
 }
 
+
 /** A material that scatters rays, ignoring their incoming angle. */
 class MatteMaterial extends Material {
-    fuzz = 0.5 + 0.5 * Math.random();
+    readonly fuzz = Math.sqrt(Math.random());
 
     hitColor(tracer: RayTracer, rayHit: RayHit): Color {
         const colors: [number, Color][] = [];
@@ -130,9 +71,10 @@ class MatteMaterial extends Material {
     }
 }
 
+
 /** A material that reflects rays. */
 class ShinyMaterial extends Material {
-    fuzz = Math.random();
+    readonly fuzz = Math.pow(Math.random(), 2);
 
     hitColor(tracer: RayTracer, rayHit: RayHit): Color {
         const direction = rayHit.hit.ray.direction;
@@ -148,11 +90,10 @@ class ShinyMaterial extends Material {
     }
 }
 
+
 /** A material that refracts rays. */
 class GlassMaterial extends Material {
-    hitColor(tracer: RayTracer, rayHit: RayHit): Color {
-        return Color.RED;
-    }
+    color = Color.RED;
 }
 
 /** All of the information about a hit and its ray. */
@@ -181,7 +122,7 @@ export class Scene {
     constructor() {
         for (let i = 0; i < 12; i++) {
             const geometry = new Sphere(V(-200 + (i % 4) * 120, 50 - 130 * Math.floor(i / 4), 1100), 50);
-            const color = randomChoice([Color.RED, Color.BLUE, Color.GREEN, Color.CYAN, Color.MAGENTA, Color.YELLOW]);
+            const color = randomChoice([Color.RED, Color.BLUE, Color.GREEN, Color.CYAN, Color.MAGENTA, Color.YELLOW, Color.BLACK, Color.WHITE]);
             const material = new (randomChoice([ShinyMaterial, MatteMaterial]) as any)(color) as Material;
             this.items.push(new Item(geometry, material));
         }

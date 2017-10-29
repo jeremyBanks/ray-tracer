@@ -1,3 +1,3 @@
-export const samplesPerPixel = 32;
-export const maxBounces = 16;
-export const maxSamplesPerBounce = 8;
+export const samplesPerPixel = 4;
+export const maxSamplesPerBounce = 4;
+export const maxBounces = 32;

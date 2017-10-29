@@ -98,29 +98,22 @@ declare module "util" {
     export const randomChoice: <T>(choices: T[]) => T;
 }
 declare module "settings" {
-    export const samplesPerPixel = 32;
-    export const maxBounces = 16;
-    export const maxSamplesPerBounce = 8;
+    export const samplesPerPixel = 4;
+    export const maxSamplesPerBounce = 4;
+    export const maxBounces = 32;
 }
 declare module "raytracer" {
     import { Color } from "color";
     import { Ray, Hit, Geometry } from "geometry";
     import { Camera } from "camera";
     export class RayTracer {
-        readonly canvas: HTMLCanvasElement;
-        readonly context: CanvasRenderingContext2D;
-        readonly image: ImageData;
-        readonly output: HTMLImageElement;
-        readonly width: number;
-        readonly height: number;
         readonly scene: Scene;
-        constructor();
-        render(): Promise<void>;
+        constructor(scene: Scene);
         getRayColor(ray: Ray, previousHit?: RayHit): Color;
     }
     /** A material a Hittable can be made of, determining how it's rendered. */
     export class Material {
-        color: Color;
+        readonly color: Color;
         constructor(color: Color);
         hitColor(tracer: RayTracer, rayHit: RayHit): Color;
     }
@@ -142,6 +135,19 @@ declare module "raytracer" {
         material: Material;
         constructor(geometry: Geometry, material: Material);
         toString(): string;
+    }
+}
+declare module "canvasrenderer" {
+    import { RayTracer } from "raytracer";
+    export class CanvasRenderer {
+        readonly canvas: HTMLCanvasElement;
+        readonly context: CanvasRenderingContext2D;
+        readonly image: ImageData;
+        readonly output: HTMLImageElement;
+        readonly width: number;
+        readonly height: number;
+        constructor(width?: number, height?: number);
+        render(rayTracer: RayTracer): Promise<void>;
     }
 }
 declare module "main" {

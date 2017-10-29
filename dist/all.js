@@ -309,13 +309,13 @@ System.register("util", [], function (exports_5, context_5) {
 System.register("settings", [], function (exports_6, context_6) {
     "use strict";
     var __moduleName = context_6 && context_6.id;
-    var samplesPerPixel, maxBounces, maxSamplesPerBounce;
+    var samplesPerPixel, maxSamplesPerBounce, maxBounces;
     return {
         setters: [],
         execute: function () {
-            exports_6("samplesPerPixel", samplesPerPixel = 32);
-            exports_6("maxBounces", maxBounces = 16);
-            exports_6("maxSamplesPerBounce", maxSamplesPerBounce = 8);
+            exports_6("samplesPerPixel", samplesPerPixel = 4);
+            exports_6("maxSamplesPerBounce", maxSamplesPerBounce = 4);
+            exports_6("maxBounces", maxBounces = 32);
         }
     };
 });
@@ -346,53 +346,8 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
         ],
         execute: function () {
             RayTracer = class RayTracer {
-                constructor() {
-                    this.width = 400;
-                    this.height = 300;
-                    this.scene = new Scene();
-                    this.canvas = document.createElement('canvas');
-                    this.canvas.width = this.width;
-                    this.canvas.height = this.height;
-                    this.context = this.canvas.getContext('2d');
-                    this.image = this.context.createImageData(this.width, this.height);
-                    this.output = document.createElement('img');
-                }
-                async render() {
-                    let lastTime = Date.now();
-                    const size = Math.max(this.width, this.height);
-                    const chunkSize = Math.floor(size / 32);
-                    // how much we pad inside the potential camera frame on each side to match the target aspect ratio
-                    const xPadding = (size - this.width) / 2;
-                    const yPadding = (size - this.height) / 2;
-                    for (let yOffset = 0; yOffset < this.height; yOffset += chunkSize) {
-                        for (let xOffset = 0; xOffset < this.width; xOffset += chunkSize) {
-                            for (let x = xOffset; x < this.width && x < xOffset + chunkSize; x++) {
-                                for (let y = yOffset; y < this.height && y < yOffset + chunkSize; y++) {
-                                    const now = Date.now();
-                                    if (now - lastTime > 250) {
-                                        this.context.putImageData(this.image, 0, 0);
-                                        await new Promise(r => setTimeout(r));
-                                        lastTime = now;
-                                    }
-                                    const colors = [];
-                                    for (let i = 0; i < settings.samplesPerPixel; i++) {
-                                        const dx = Math.random() - 0.5;
-                                        const dy = Math.random() - 0.5;
-                                        colors.push(this.getRayColor(this.scene.camera.getRay((xPadding + x + dx) / (size - 1), (yPadding + y + dy) / (size - 1))));
-                                    }
-                                    const pixel = color_1.Color.blend(colors); //.pow(0.45);
-                                    const offset = (y * this.width + x) * 4;
-                                    this.image.data[offset + 0] = pixel.r8;
-                                    this.image.data[offset + 1] = pixel.g8;
-                                    this.image.data[offset + 2] = pixel.b8;
-                                    this.image.data[offset + 3] = 0xFF;
-                                }
-                            }
-                        }
-                    }
-                    this.context.putImageData(this.image, 0, 0);
-                    const dataUri = this.canvas.toDataURL();
-                    this.output.src = dataUri;
+                constructor(scene) {
+                    this.scene = scene;
                 }
                 getRayColor(ray, previousHit) {
                     if ((previousHit ? previousHit.previousHits : 0) + 1 >= settings.maxBounces) {
@@ -432,7 +387,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
             MatteMaterial = class MatteMaterial extends Material {
                 constructor() {
                     super(...arguments);
-                    this.fuzz = 0.5 + 0.5 * Math.random();
+                    this.fuzz = Math.sqrt(Math.random());
                 }
                 hitColor(tracer, rayHit) {
                     const colors = [];
@@ -449,7 +404,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
             ShinyMaterial = class ShinyMaterial extends Material {
                 constructor() {
                     super(...arguments);
-                    this.fuzz = Math.random();
+                    this.fuzz = Math.pow(Math.random(), 2);
                 }
                 hitColor(tracer, rayHit) {
                     const direction = rayHit.hit.ray.direction;
@@ -466,8 +421,9 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
             };
             /** A material that refracts rays. */
             GlassMaterial = class GlassMaterial extends Material {
-                hitColor(tracer, rayHit) {
-                    return color_1.Color.RED;
+                constructor() {
+                    super(...arguments);
+                    this.color = color_1.Color.RED;
                 }
             };
             /** All of the information about a hit and its ray. */
@@ -488,7 +444,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
                     this.camera = new camera_1.Camera();
                     for (let i = 0; i < 12; i++) {
                         const geometry = new geometry_2.Sphere(vector_3.V(-200 + (i % 4) * 120, 50 - 130 * Math.floor(i / 4), 1100), 50);
-                        const color = util_1.randomChoice([color_1.Color.RED, color_1.Color.BLUE, color_1.Color.GREEN, color_1.Color.CYAN, color_1.Color.MAGENTA, color_1.Color.YELLOW]);
+                        const color = util_1.randomChoice([color_1.Color.RED, color_1.Color.BLUE, color_1.Color.GREEN, color_1.Color.CYAN, color_1.Color.MAGENTA, color_1.Color.YELLOW, color_1.Color.BLACK, color_1.Color.WHITE]);
                         const material = new (util_1.randomChoice([ShinyMaterial, MatteMaterial]))(color);
                         this.items.push(new Item(geometry, material));
                     }
@@ -508,22 +464,96 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
         }
     };
 });
-System.register("main", ["raytracer"], function (exports_8, context_8) {
+System.register("canvasrenderer", ["color", "settings"], function (exports_8, context_8) {
     "use strict";
     var __moduleName = context_8 && context_8.id;
-    var raytracer_1, main;
+    var color_2, settings, CanvasRenderer;
+    return {
+        setters: [
+            function (color_2_1) {
+                color_2 = color_2_1;
+            },
+            function (settings_2) {
+                settings = settings_2;
+            }
+        ],
+        execute: function () {
+            CanvasRenderer = class CanvasRenderer {
+                constructor(width = 256, height = width) {
+                    this.width = width;
+                    this.height = height;
+                    this.canvas = document.createElement('canvas');
+                    this.canvas.width = this.width;
+                    this.canvas.height = this.height;
+                    this.context = this.canvas.getContext('2d');
+                    this.image = this.context.createImageData(this.width, this.height);
+                    this.output = document.createElement('img');
+                    this.output.width = this.width;
+                    this.output.height = this.height;
+                }
+                async render(rayTracer) {
+                    let lastTime = Date.now();
+                    const size = Math.max(this.width, this.height);
+                    const chunkSize = Math.floor(size / 32);
+                    // how much we pad inside the potential camera frame on each side to match the target aspect ratio
+                    const xPadding = (size - this.width) / 2;
+                    const yPadding = (size - this.height) / 2;
+                    for (let yOffset = 0; yOffset < this.height; yOffset += chunkSize) {
+                        for (let xOffset = 0; xOffset < this.width; xOffset += chunkSize) {
+                            for (let x = xOffset; x < this.width && x < xOffset + chunkSize; x++) {
+                                for (let y = yOffset; y < this.height && y < yOffset + chunkSize; y++) {
+                                    const now = Date.now();
+                                    if (now - lastTime > 250) {
+                                        this.context.putImageData(this.image, 0, 0);
+                                        await new Promise(r => setTimeout(r));
+                                        lastTime = now;
+                                    }
+                                    const colors = [];
+                                    for (let i = 0; i < settings.samplesPerPixel; i++) {
+                                        const dx = Math.random() - 0.5;
+                                        const dy = Math.random() - 0.5;
+                                        colors.push(rayTracer.getRayColor(rayTracer.scene.camera.getRay((xPadding + x + dx) / (size - 1), (yPadding + y + dy) / (size - 1))));
+                                    }
+                                    const pixel = color_2.Color.blend(colors).pow(0.45);
+                                    const offset = (y * this.width + x) * 4;
+                                    this.image.data[offset + 0] = pixel.r8;
+                                    this.image.data[offset + 1] = pixel.g8;
+                                    this.image.data[offset + 2] = pixel.b8;
+                                    this.image.data[offset + 3] = 0xFF;
+                                }
+                            }
+                        }
+                    }
+                    this.context.putImageData(this.image, 0, 0);
+                    const dataUri = this.canvas.toDataURL();
+                    this.output.src = dataUri;
+                }
+            };
+            exports_8("CanvasRenderer", CanvasRenderer);
+        }
+    };
+});
+System.register("main", ["raytracer", "canvasrenderer"], function (exports_9, context_9) {
+    "use strict";
+    var __moduleName = context_9 && context_9.id;
+    var raytracer_1, canvasrenderer_1, main;
     return {
         setters: [
             function (raytracer_1_1) {
                 raytracer_1 = raytracer_1_1;
+            },
+            function (canvasrenderer_1_1) {
+                canvasrenderer_1 = canvasrenderer_1_1;
             }
         ],
         execute: function () {
             main = () => {
-                const tracer = new raytracer_1.RayTracer();
-                document.body.appendChild(tracer.output);
-                document.body.appendChild(tracer.canvas);
-                tracer.render();
+                const scene = new raytracer_1.Scene();
+                const rayTracer = new raytracer_1.RayTracer(scene);
+                const renderer = new canvasrenderer_1.CanvasRenderer(400, 300);
+                document.body.appendChild(renderer.output);
+                document.body.appendChild(renderer.canvas);
+                renderer.render(rayTracer);
             };
             main();
         }
