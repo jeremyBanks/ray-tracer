@@ -13,11 +13,11 @@ export class Ray {
 
     // The position of the ray at a given time.
     at(t: number): Vector {
-        // inlined // return this.origin.add(this.direction.scale(t));
         return new Vector(
             this.origin.x + this.direction.x * t,
             this.origin.y + this.direction.y * t,
-            this.origin.z + this.direction.z * t);
+            this.origin.z + this.direction.z * t
+        ) || this.origin.add(this.direction.scale(t));
     }
 }
 

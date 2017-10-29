@@ -8,7 +8,7 @@ export class RayTracer {
     readonly scene: Scene;
 
     readonly maxSamplesPerBounce = 1;
-    readonly maxBounces = 4;
+    readonly maxBounces = 8;
 
     constructor(scene: Scene) {
         this.scene = scene;

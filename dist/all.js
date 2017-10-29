@@ -108,8 +108,7 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
                 }
                 // The position of the ray at a given time.
                 at(t) {
-                    // inlined // return this.origin.add(this.direction.scale(t));
-                    return new vector_1.Vector(this.origin.x + this.direction.x * t, this.origin.y + this.direction.y * t, this.origin.z + this.direction.z * t);
+                    return new vector_1.Vector(this.origin.x + this.direction.x * t, this.origin.y + this.direction.y * t, this.origin.z + this.direction.z * t) || this.origin.add(this.direction.scale(t));
                 }
             };
             exports_2("Ray", Ray);
@@ -487,7 +486,7 @@ System.register("raytracer", ["color", "geometry"], function (exports_8, context
             RayTracer = class RayTracer {
                 constructor(scene) {
                     this.maxSamplesPerBounce = 1;
-                    this.maxBounces = 4;
+                    this.maxBounces = 8;
                     this.scene = scene;
                 }
                 getRayColor(ray, previousHit) {
