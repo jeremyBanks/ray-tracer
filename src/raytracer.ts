@@ -53,9 +53,9 @@ export class RayTracer {
             }
         }
         
-        // background, a light color reflecting the ray's direction.
-        const a = Math.pow(ray.direction.y + 1 / 2, 2);
-        return RGB(a * 0.1, a * 0.2, a * 0.3);
+        // background
+        const a = Math.sqrt(ray.direction.y * 0.5 + 0.5);
+        return RGB(a, a, a);
     }
 }
 

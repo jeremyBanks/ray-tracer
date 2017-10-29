@@ -501,9 +501,9 @@ System.register("raytracer", ["color", "geometry"], function (exports_8, context
                             return material.color;
                         }
                     }
-                    // background, a light color reflecting the ray's direction.
-                    const a = Math.pow(ray.direction.y + 1 / 2, 2);
-                    return color_3.RGB(a * 0.1, a * 0.2, a * 0.3);
+                    // background
+                    const a = Math.sqrt(ray.direction.y * 0.5 + 0.5);
+                    return color_3.RGB(a, a, a);
                 }
             };
             exports_8("RayTracer", RayTracer);
