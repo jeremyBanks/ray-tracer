@@ -91,15 +91,54 @@ declare module "color" {
         readonly g8: number;
         readonly b8: number;
         pow(exponent: number): Color;
-        static blend(colors: (Color | [number, Color])[]): Color;
+        static blend(...colors: (Color | [number, Color])[]): Color;
+        static multiply(...colors: Color[]): Color;
+        static screen(...colors: Color[]): Color;
     }
 }
 declare module "util" {
     export const randomChoice: <T>(choices: T[]) => T;
 }
+declare module "material" {
+    import { Hit } from "geometry";
+    import { Vector } from "vector";
+    import { Color } from "color";
+    /** A material a Hittable can be made of, determining how it's rendered. */
+    export class Material {
+        readonly color: Color;
+        readonly colorStrength: number;
+        readonly fuzziness: number;
+        constructor(color?: Color, colorStrength?: number, fuzziness?: number);
+        /**
+         * generate a possible angle of reflection.
+         * this can produce randomized results; it will be called multiple times.
+         * if possible the random element should be scaled by fuzziness, down to
+         * a non-random behaviour at 0.0.
+         */
+        getDeflection(hit: Hit): Vector;
+        protected fuzzDirection(direction: Vector): Vector;
+    }
+    /** A material that scatters rays, ignoring their incoming angle. */
+    export class MatteMaterial extends Material {
+        static PURE_FUZZ: MatteMaterial;
+        static PURE_PROJECTION: MatteMaterial;
+        getDeflection(hit: Hit): Vector;
+    }
+    /** A material that reflects rays. */
+    export class ShinyMaterial extends Material {
+        static PURE_FUZZ: MatteMaterial;
+        static PURE_REFLECTION: MatteMaterial;
+        readonly fuzz: number;
+        getDeflection(hit: Hit): Vector;
+    }
+    /** A material that refracts rays. */
+    export class GlassMaterial extends Material {
+        color: Readonly<Color>;
+    }
+}
 declare module "scene" {
     import { Camera } from "camera";
-    import { Material } from './material';
+    import { Material } from "material";
     import { Geometry } from "geometry";
     export class Scene {
         items: Item[];

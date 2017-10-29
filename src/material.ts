@@ -5,12 +5,14 @@ import {Color} from 'color';
 
 /** A material a Hittable can be made of, determining how it's rendered. */
 export class Material {
-    readonly color: Color = Color.MAGENTA;
-    readonly colorStrength: number = 1.0;
+    readonly color: Color;
+    readonly colorStrength: number;
+    readonly fuzziness: number;
 
-    constructor(color: Color, opacity: number) {
+    constructor(color: Color = Color.MAGENTA, colorStrength: number = 1.0, fuzziness: number = 0.0) {
         this.color = color;
-        this.colorStrength = Math.max(0, Math.min(1, opacity));
+        this.colorStrength = Math.max(0, Math.min(1, colorStrength));
+        this.fuzziness = Math.max(0, Math.min(1, fuzziness));
     }
 
     /**
@@ -19,50 +21,42 @@ export class Material {
      * if possible the random element should be scaled by fuzziness, down to
      * a non-random behaviour at 0.0.
      */
-    getReflection(hit: Hit, fuzziness?: number): Vector | null {
-        // just let the ray pass through
-        return hit.ray.direction;
+    getDeflection(hit: Hit): Vector {
+        return this.fuzzDirection(hit.ray.direction);
+    }
+
+    protected fuzzDirection(direction: Vector): Vector {
+        return direction.direction().add(Vector.randomUnit().scale(this.fuzziness)).direction();
     }
 }
 
 
 /** A material that scatters rays, ignoring their incoming angle. */
 export class MatteMaterial extends Material {
-    readonly fuzz = Math.sqrt(Math.random());
+    static PURE_FUZZ = new MatteMaterial(Color.MAGENTA, 0.0, 1.0);
+    static PURE_PROJECTION = new MatteMaterial(Color.MAGENTA, 0.0, 0.0);
 
-    hitColor(tracer: RayTracer, tracedHit: TracedHit): Color {
-        const colors: [number, Color][] = [];
-        const samplesPerBounce = Math.ceil(tracer.maxSamplesPerBounce / Math.pow(2, tracedHit.previousHits));
-        for (let i = 0; i < samplesPerBounce; i++) {
-            colors.push([1, this.color]);
-            const scatteredRay = new Ray(tracedHit.hit.location, tracedHit.hit.normal.add(Vector.randomUnit().scale(this.fuzz)).direction());
-            colors.push([2, tracer.getRayColor(scatteredRay, tracedHit)]);
-        }
-        return Color.blend(...colors);
+    getDeflection(hit: Hit): Vector {
+        return this.fuzzDirection(hit.normal);
     }
 }
 
 
 /** A material that reflects rays. */
 export class ShinyMaterial extends Material {
+    static PURE_FUZZ = new MatteMaterial(Color.MAGENTA, 0.0, 1.0);
+    static PURE_REFLECTION = new MatteMaterial(Color.MAGENTA, 0.0, 0.0);
+
     readonly fuzz = Math.pow(Math.random(), 2);
 
-    hitColor(tracer: RayTracer, tracedHit: TracedHit): Color {
-        const direction = tracedHit.hit.ray.direction;
-        const reflection = direction.sub(tracedHit.hit.normal.scale(2 * direction.dot(tracedHit.hit.normal))).direction();
-        const colors: [number, Color][] = [];
-        const samplesPerBounce = Math.ceil(tracer.maxSamplesPerBounce / Math.pow(2, tracedHit.previousHits));
-        for (let i = 0; i < samplesPerBounce; i++) {
-            colors.push([1, this.color]);
-            const reflectedRay = new Ray(tracedHit.hit.location, reflection.add(Vector.randomUnit().scale(this.fuzz)).direction());
-            colors.push([2, tracer.getRayColor(reflectedRay, tracedHit)]);
-        }
-        return Color.blend(...colors);
+    getDeflection(hit: Hit): Vector {
+        const reflection = hit.ray.direction.sub(hit.normal.scale(2 * hit.ray.direction.dot(hit.normal))).direction();
+        return this.fuzzDirection(reflection);
     }
 }
 
 
 /** A material that refracts rays. */
 export class GlassMaterial extends Material {
-    color = Color.BLACK;
+    color = Color.RED;
 }

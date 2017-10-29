@@ -17,7 +17,7 @@ export class Scene {
             if (useGlass) continue; // wow! it's invisible! how realistic.
 
             const color = randomChoice([Color.RED, Color.BLUE, Color.GREEN ]);
-            const material = new (randomChoice(useGlass ? [GlassMaterial] : [ShinyMaterial, MatteMaterial]) as any)(color) as Material;
+            const material = new (randomChoice(useGlass ? [GlassMaterial] : [ShinyMaterial, MatteMaterial]) as any)(color, 0.5 * Math.random(), Math.random()) as Material;
             this.items.push(new Item(geometry, material));
         }
     }

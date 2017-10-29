@@ -32,9 +32,27 @@ export class RayTracer {
         
         if (closestHit && closestHitItem) {
             const tracedHit = new TracedHit(closestHit, closestHitItem, previousHit);
-            return closestHitItem.material.hitColor(this, TracedHit);
+            const material = closestHitItem.material;
+
+            if (material.colorStrength < 1.0) {
+                // halve samples after each bounce, down to minimum of 1.
+                const samplesPerBounce = Math.ceil(this.maxSamplesPerBounce / Math.pow(2, tracedHit.previousCount));
+                const samples: Color[] = [];
+                for (let i = 0; i < samplesPerBounce; i++) {
+                    const reflection = new Ray(closestHit.location, material.getDeflection(closestHit));
+                    const color = this.getRayColor(reflection, tracedHit);
+                    samples.push(color);
+                }
+
+                return Color.blend(
+                    [material.colorStrength, material.color],
+                    [1 - material.colorStrength, Color.blend(...samples)]
+                );
+            } else {
+                return material.color;
+            }
         }
-      
+        
         // background, a light color reflecting the ray's direction.
         const a = Math.pow(ray.direction.y + 1 / 2, 2);
         return RGB(a * 0.1, a * 0.2, a * 0.3);

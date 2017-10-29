@@ -324,15 +324,12 @@ System.register("util", [], function (exports_5, context_5) {
         }
     };
 });
-System.register("material", ["geometry", "vector", "color"], function (exports_6, context_6) {
+System.register("material", ["vector", "color"], function (exports_6, context_6) {
     "use strict";
     var __moduleName = context_6 && context_6.id;
-    var geometry_2, vector_3, color_1, Material, MatteMaterial, ShinyMaterial, GlassMaterial;
+    var vector_3, color_1, Material, MatteMaterial, ShinyMaterial, GlassMaterial;
     return {
         setters: [
-            function (geometry_2_1) {
-                geometry_2 = geometry_2_1;
-            },
             function (vector_3_1) {
                 vector_3 = vector_3_1;
             },
@@ -343,11 +340,10 @@ System.register("material", ["geometry", "vector", "color"], function (exports_6
         execute: function () {
             /** A material a Hittable can be made of, determining how it's rendered. */
             Material = class Material {
-                constructor(color, opacity) {
-                    this.color = color_1.Color.MAGENTA;
-                    this.colorStrength = 1.0;
+                constructor(color = color_1.Color.MAGENTA, colorStrength = 1.0, fuzziness = 0.0) {
                     this.color = color;
-                    this.colorStrength = Math.max(0, Math.min(1, opacity));
+                    this.colorStrength = Math.max(0, Math.min(1, colorStrength));
+                    this.fuzziness = Math.max(0, Math.min(1, fuzziness));
                 }
                 /**
                  * generate a possible angle of reflection.
@@ -355,29 +351,22 @@ System.register("material", ["geometry", "vector", "color"], function (exports_6
                  * if possible the random element should be scaled by fuzziness, down to
                  * a non-random behaviour at 0.0.
                  */
-                getReflection(hit, fuzziness) {
-                    // just let the ray pass through
-                    return hit.ray.direction;
+                getDeflection(hit) {
+                    return this.fuzzDirection(hit.ray.direction);
+                }
+                fuzzDirection(direction) {
+                    return direction.direction().add(vector_3.Vector.randomUnit().scale(this.fuzziness)).direction();
                 }
             };
             exports_6("Material", Material);
             /** A material that scatters rays, ignoring their incoming angle. */
             MatteMaterial = class MatteMaterial extends Material {
-                constructor() {
-                    super(...arguments);
-                    this.fuzz = Math.sqrt(Math.random());
-                }
-                hitColor(tracer, tracedHit) {
-                    const colors = [];
-                    const samplesPerBounce = Math.ceil(tracer.maxSamplesPerBounce / Math.pow(2, tracedHit.previousHits));
-                    for (let i = 0; i < samplesPerBounce; i++) {
-                        colors.push([1, this.color]);
-                        const scatteredRay = new geometry_2.Ray(tracedHit.hit.location, tracedHit.hit.normal.add(vector_3.Vector.randomUnit().scale(this.fuzz)).direction());
-                        colors.push([2, tracer.getRayColor(scatteredRay, tracedHit)]);
-                    }
-                    return color_1.Color.blend(...colors);
+                getDeflection(hit) {
+                    return this.fuzzDirection(hit.normal);
                 }
             };
+            MatteMaterial.PURE_FUZZ = new MatteMaterial(color_1.Color.MAGENTA, 0.0, 1.0);
+            MatteMaterial.PURE_PROJECTION = new MatteMaterial(color_1.Color.MAGENTA, 0.0, 0.0);
             exports_6("MatteMaterial", MatteMaterial);
             /** A material that reflects rays. */
             ShinyMaterial = class ShinyMaterial extends Material {
@@ -385,25 +374,19 @@ System.register("material", ["geometry", "vector", "color"], function (exports_6
                     super(...arguments);
                     this.fuzz = Math.pow(Math.random(), 2);
                 }
-                hitColor(tracer, tracedHit) {
-                    const direction = tracedHit.hit.ray.direction;
-                    const reflection = direction.sub(tracedHit.hit.normal.scale(2 * direction.dot(tracedHit.hit.normal))).direction();
-                    const colors = [];
-                    const samplesPerBounce = Math.ceil(tracer.maxSamplesPerBounce / Math.pow(2, tracedHit.previousHits));
-                    for (let i = 0; i < samplesPerBounce; i++) {
-                        colors.push([1, this.color]);
-                        const reflectedRay = new geometry_2.Ray(tracedHit.hit.location, reflection.add(vector_3.Vector.randomUnit().scale(this.fuzz)).direction());
-                        colors.push([2, tracer.getRayColor(reflectedRay, tracedHit)]);
-                    }
-                    return color_1.Color.blend(...colors);
+                getDeflection(hit) {
+                    const reflection = hit.ray.direction.sub(hit.normal.scale(2 * hit.ray.direction.dot(hit.normal))).direction();
+                    return this.fuzzDirection(reflection);
                 }
             };
+            ShinyMaterial.PURE_FUZZ = new MatteMaterial(color_1.Color.MAGENTA, 0.0, 1.0);
+            ShinyMaterial.PURE_REFLECTION = new MatteMaterial(color_1.Color.MAGENTA, 0.0, 0.0);
             exports_6("ShinyMaterial", ShinyMaterial);
             /** A material that refracts rays. */
             GlassMaterial = class GlassMaterial extends Material {
                 constructor() {
                     super(...arguments);
-                    this.color = color_1.Color.BLACK;
+                    this.color = color_1.Color.RED;
                 }
             };
             exports_6("GlassMaterial", GlassMaterial);
@@ -413,7 +396,7 @@ System.register("material", ["geometry", "vector", "color"], function (exports_6
 System.register("scene", ["camera", "util", "color", "vector", "material", "geometry"], function (exports_7, context_7) {
     "use strict";
     var __moduleName = context_7 && context_7.id;
-    var camera_1, util_1, color_2, vector_4, material_1, geometry_3, Scene, Item;
+    var camera_1, util_1, color_2, vector_4, material_1, geometry_2, Scene, Item;
     return {
         setters: [
             function (camera_1_1) {
@@ -431,8 +414,8 @@ System.register("scene", ["camera", "util", "color", "vector", "material", "geom
             function (material_1_1) {
                 material_1 = material_1_1;
             },
-            function (geometry_3_1) {
-                geometry_3 = geometry_3_1;
+            function (geometry_2_1) {
+                geometry_2 = geometry_2_1;
             }
         ],
         execute: function () {
@@ -443,12 +426,12 @@ System.register("scene", ["camera", "util", "color", "vector", "material", "geom
                     for (let x = 0; x < 4; x++)
                         for (let y = 0; y < 4; y++)
                             for (let z = 0; z < 4; z++) {
-                                const geometry = new geometry_3.Sphere(vector_4.V(-200 + x * 120, 250 - 130 * y, 700 + 200 * z), 50);
+                                const geometry = new geometry_2.Sphere(vector_4.V(-200 + x * 120, 250 - 130 * y, 700 + 200 * z), 50);
                                 const useGlass = z < 2 && x > 0 && x < 3 && y > 0 && y < 3;
                                 if (useGlass)
                                     continue; // wow! it's invisible! how realistic.
                                 const color = util_1.randomChoice([color_2.Color.RED, color_2.Color.BLUE, color_2.Color.GREEN]);
-                                const material = new (util_1.randomChoice(useGlass ? [material_1.GlassMaterial] : [material_1.ShinyMaterial, material_1.MatteMaterial]))(color);
+                                const material = new (util_1.randomChoice(useGlass ? [material_1.GlassMaterial] : [material_1.ShinyMaterial, material_1.MatteMaterial]))(color, 0.5 * Math.random(), Math.random());
                                 this.items.push(new Item(geometry, material));
                             }
                 }
@@ -467,14 +450,17 @@ System.register("scene", ["camera", "util", "color", "vector", "material", "geom
         }
     };
 });
-System.register("raytracer", ["color"], function (exports_8, context_8) {
+System.register("raytracer", ["color", "geometry"], function (exports_8, context_8) {
     "use strict";
     var __moduleName = context_8 && context_8.id;
-    var color_3, RayTracer, TracedHit;
+    var color_3, geometry_3, RayTracer, TracedHit;
     return {
         setters: [
             function (color_3_1) {
                 color_3 = color_3_1;
+            },
+            function (geometry_3_1) {
+                geometry_3 = geometry_3_1;
             }
         ],
         execute: function () {
@@ -499,7 +485,21 @@ System.register("raytracer", ["color"], function (exports_8, context_8) {
                     }
                     if (closestHit && closestHitItem) {
                         const tracedHit = new TracedHit(closestHit, closestHitItem, previousHit);
-                        return closestHitItem.material.hitColor(this, TracedHit);
+                        const material = closestHitItem.material;
+                        if (material.colorStrength < 1.0) {
+                            // halve samples after each bounce, down to minimum of 1.
+                            const samplesPerBounce = Math.ceil(this.maxSamplesPerBounce / Math.pow(2, tracedHit.previousCount));
+                            const samples = [];
+                            for (let i = 0; i < samplesPerBounce; i++) {
+                                const reflection = new geometry_3.Ray(closestHit.location, material.getDeflection(closestHit));
+                                const color = this.getRayColor(reflection, tracedHit);
+                                samples.push(color);
+                            }
+                            return color_3.Color.blend([material.colorStrength, material.color], [1 - material.colorStrength, color_3.Color.blend(...samples)]);
+                        }
+                        else {
+                            return material.color;
+                        }
                     }
                     // background, a light color reflecting the ray's direction.
                     const a = Math.pow(ray.direction.y + 1 / 2, 2);
