@@ -313,9 +313,9 @@ System.register("settings", [], function (exports_6, context_6) {
     return {
         setters: [],
         execute: function () {
-            exports_6("samplesPerPixel", samplesPerPixel = 4);
+            exports_6("samplesPerPixel", samplesPerPixel = 8);
             exports_6("maxSamplesPerBounce", maxSamplesPerBounce = 4);
-            exports_6("maxBounces", maxBounces = 32);
+            exports_6("maxBounces", maxBounces = 8);
         }
     };
 });
@@ -368,7 +368,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
                     }
                     // background, a light color reflecting the ray's direction.
                     const a = Math.pow(ray.direction.y + 1 / 2, 2);
-                    return color_1.RGB(a, 0.3 + a, 0.5 + a * 2);
+                    return color_1.RGB(a * 0.1, a * 0.2, a * 0.3);
                 }
             };
             exports_7("RayTracer", RayTracer);
@@ -395,7 +395,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
                     for (let i = 0; i < samplesPerBounce; i++) {
                         colors.push([1, this.color]);
                         const scatteredRay = new geometry_2.Ray(rayHit.hit.location, rayHit.hit.normal.add(vector_3.Vector.randomUnit().scale(this.fuzz)).direction());
-                        colors.push([1, tracer.getRayColor(scatteredRay, rayHit)]);
+                        colors.push([2, tracer.getRayColor(scatteredRay, rayHit)]);
                     }
                     return color_1.Color.blend(colors);
                 }
@@ -438,16 +438,18 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
             exports_7("RayHit", RayHit);
             Scene = class Scene {
                 constructor() {
-                    this.items = [
-                        new Item(new geometry_2.Sphere(vector_3.V(-50, 500, 1400), 400), new MatteMaterial(color_1.Color.YELLOW)),
-                    ];
+                    this.items = [];
                     this.camera = new camera_1.Camera();
-                    for (let i = 0; i < 12; i++) {
-                        const geometry = new geometry_2.Sphere(vector_3.V(-200 + (i % 4) * 120, 50 - 130 * Math.floor(i / 4), 1100), 50);
-                        const color = util_1.randomChoice([color_1.Color.RED, color_1.Color.BLUE, color_1.Color.GREEN, color_1.Color.CYAN, color_1.Color.MAGENTA, color_1.Color.YELLOW, color_1.Color.BLACK, color_1.Color.WHITE]);
-                        const material = new (util_1.randomChoice([ShinyMaterial, MatteMaterial]))(color);
-                        this.items.push(new Item(geometry, material));
-                    }
+                    for (let x = 0; x < 4; x++)
+                        for (let y = 0; y < 4; y++)
+                            for (let z = 0; z < 4; z++) {
+                                if (z < 2 && x > 0 && x < 3 && y > 0 && y < 3)
+                                    continue;
+                                const geometry = new geometry_2.Sphere(vector_3.V(-200 + x * 120, 250 - 130 * y, 700 + 200 * z), 50);
+                                const color = util_1.randomChoice([color_1.Color.RED, color_1.Color.BLUE, color_1.Color.GREEN, color_1.Color.CYAN, color_1.Color.MAGENTA, color_1.Color.YELLOW, color_1.Color.BLACK, color_1.Color.WHITE]);
+                                const material = new (util_1.randomChoice([ShinyMaterial, MatteMaterial]))(color);
+                                this.items.push(new Item(geometry, material));
+                            }
                 }
             };
             exports_7("Scene", Scene);

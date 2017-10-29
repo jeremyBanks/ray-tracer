@@ -36,7 +36,7 @@ export class RayTracer {
       
         // background, a light color reflecting the ray's direction.
         const a = Math.pow(ray.direction.y + 1 / 2, 2);
-        return RGB(a, 0.3 + a, 0.5 + a * 2);
+        return RGB(a * 0.1, a * 0.2, a * 0.3);
     }
 }
 
@@ -65,7 +65,7 @@ class MatteMaterial extends Material {
         for (let i = 0; i < samplesPerBounce; i++) {
             colors.push([1, this.color]);
             const scatteredRay = new Ray(rayHit.hit.location, rayHit.hit.normal.add(Vector.randomUnit().scale(this.fuzz)).direction());
-            colors.push([1, tracer.getRayColor(scatteredRay, rayHit)]);
+            colors.push([2, tracer.getRayColor(scatteredRay, rayHit)]);
         }
         return Color.blend(colors);
     }
@@ -113,15 +113,13 @@ export class RayHit {
 
 
 export class Scene {
-    items: Item[] = [
-        new Item(new Sphere(V( -50,   500, 1400),  400), new MatteMaterial(Color.YELLOW)),
-    ];
-
+    items: Item[] = [];
     camera = new Camera();
 
     constructor() {
-        for (let i = 0; i < 12; i++) {
-            const geometry = new Sphere(V(-200 + (i % 4) * 120, 50 - 130 * Math.floor(i / 4), 1100), 50);
+        for (let x = 0; x < 4; x++) for (let y = 0; y < 4; y++) for (let z = 0; z < 4; z++) {
+            if (z < 2 && x > 0 && x < 3 && y > 0 && y < 3) continue;
+            const geometry = new Sphere(V(-200 + x * 120, 250 - 130 * y, 700 + 200 * z), 50);
             const color = randomChoice([Color.RED, Color.BLUE, Color.GREEN, Color.CYAN, Color.MAGENTA, Color.YELLOW, Color.BLACK, Color.WHITE]);
             const material = new (randomChoice([ShinyMaterial, MatteMaterial]) as any)(color) as Material;
             this.items.push(new Item(geometry, material));
