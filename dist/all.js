@@ -501,7 +501,7 @@ System.register("raytracer", ["color", "geometry"], function (exports_8, context
                         const dy = item.geometry.position.y - ray.origin.y;
                         const dz = item.geometry.position.z - ray.origin.z;
                         const minDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                        // inlined: item.geometry.position.sub(ray.origin).magnitude() - item.geometry.radius;
+                        // inlined: const minDistance = item.geometry.position.sub(ray.origin).magnitude() - item.geometry.radius;
                         return { item, minDistance };
                     }).sort((a, b) => a.minDistance - b.minDistance);
                     let closestHit;
