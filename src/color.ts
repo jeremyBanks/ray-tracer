@@ -16,9 +16,9 @@ export class Color {
     readonly b: number;
 
     constructor(r: number, g: number, b: number) {
-        if (!Number.isFinite(r)) throw new Error(`r is ${r}`);
-        if (!Number.isFinite(g)) throw new Error(`g is ${g}`);
-        if (!Number.isFinite(b)) throw new Error(`b is ${b}`);
+        if (!Number.isFinite(r)) console.warn(`r is ${r}`);
+        if (!Number.isFinite(g)) console.warn(`g is ${g}`);
+        if (!Number.isFinite(b)) console.warn(`b is ${b}`);
 
         this.r = Math.min(1.0, Math.max(0.0, r));
         this.g = Math.min(1.0, Math.max(0.0, g));

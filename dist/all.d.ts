@@ -2,10 +2,10 @@ declare module "vector" {
     /** A vector in number^3 space. */
     export const V: (x: number, y: number, z: number) => Vector;
     export class Vector {
-        static ZERO: Readonly<Vector>;
-        static X: Readonly<Vector>;
-        static Y: Readonly<Vector>;
-        static Z: Readonly<Vector>;
+        static ZERO: Vector;
+        static X: Vector;
+        static Y: Vector;
+        static Z: Vector;
         readonly x: number;
         readonly y: number;
         readonly z: number;
@@ -47,9 +47,15 @@ declare module "geometry" {
         allHits(ray: Ray): Hit[];
     }
     export class Sphere extends Geometry {
-        center: Vector;
-        radius: number;
+        readonly center: Vector;
+        readonly radius: number;
         constructor(center: Vector, radius: number);
+        allHits(ray: Ray): Hit[];
+    }
+    export class Plane extends Geometry {
+        readonly origin: Vector;
+        readonly normal: Vector;
+        constructor(origin: Vector, normal: Vector);
         allHits(ray: Ray): Hit[];
     }
 }

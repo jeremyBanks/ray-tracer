@@ -1,19 +1,19 @@
 /** A vector in number^3 space. */
 export const V = (x: number, y: number, z: number): Vector => new Vector(x, y, z);
 export class Vector {
-    static ZERO = Object.freeze(new Vector(0, 0, 0));
-    static X    = Object.freeze(new Vector(1, 0, 0));
-    static Y    = Object.freeze(new Vector(0, 1, 0));
-    static Z    = Object.freeze(new Vector(0, 0, 1));
+    static ZERO = new Vector(0, 0, 0);
+    static X    = new Vector(1, 0, 0);
+    static Y    = new Vector(0, 1, 0);
+    static Z    = new Vector(0, 0, 1);
 
     readonly x: number;
     readonly y: number;
     readonly z: number;
   
     constructor(x: number, y: number, z: number) {
-        if (!Number.isFinite(x)) throw new Error(`x is ${x}`);
-        if (!Number.isFinite(y)) throw new Error(`y is ${y}`);
-        if (!Number.isFinite(z)) throw new Error(`z is ${z}`);
+        if (!Number.isFinite(x)) console.warn(`x is ${x}`);
+        if (!Number.isFinite(y)) console.warn(`y is ${y}`);
+        if (!Number.isFinite(z)) console.warn(`z is ${z}`);
 
         this.x = x;
         this.y = y;

@@ -14,11 +14,11 @@ System.register("vector", [], function (exports_1, context_1) {
                     // directionally-equivalent unit or zero vector
                     this.directionValue = undefined;
                     if (!Number.isFinite(x))
-                        throw new Error(`x is ${x}`);
+                        console.warn(`x is ${x}`);
                     if (!Number.isFinite(y))
-                        throw new Error(`y is ${y}`);
+                        console.warn(`y is ${y}`);
                     if (!Number.isFinite(z))
-                        throw new Error(`z is ${z}`);
+                        console.warn(`z is ${z}`);
                     this.x = x;
                     this.y = y;
                     this.z = z;
@@ -80,10 +80,10 @@ System.register("vector", [], function (exports_1, context_1) {
                     }
                 }
             };
-            Vector.ZERO = Object.freeze(new Vector(0, 0, 0));
-            Vector.X = Object.freeze(new Vector(1, 0, 0));
-            Vector.Y = Object.freeze(new Vector(0, 1, 0));
-            Vector.Z = Object.freeze(new Vector(0, 0, 1));
+            Vector.ZERO = new Vector(0, 0, 0);
+            Vector.X = new Vector(1, 0, 0);
+            Vector.Y = new Vector(0, 1, 0);
+            Vector.Z = new Vector(0, 0, 1);
             exports_1("Vector", Vector);
             ;
         }
@@ -92,7 +92,7 @@ System.register("vector", [], function (exports_1, context_1) {
 System.register("geometry", ["vector"], function (exports_2, context_2) {
     "use strict";
     var __moduleName = context_2 && context_2.id;
-    var vector_1, Ray, Hit, Geometry, Sphere;
+    var vector_1, Ray, Hit, Geometry, Sphere, Plane;
     return {
         setters: [
             function (vector_1_1) {
@@ -173,6 +173,23 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
                 }
             };
             exports_2("Sphere", Sphere);
+            Plane = class Plane extends Geometry {
+                constructor(origin, normal) {
+                    super();
+                    this.origin = origin;
+                    this.normal = normal;
+                }
+                allHits(ray) {
+                    const dot = ray.direction.dot(this.normal);
+                    if (Math.abs(dot) > 0.001) {
+                        const origin = ray.origin.sub(this.origin);
+                        const t = this.normal.dot(origin) / -dot;
+                        return [new Hit(ray, t, ray.at(t), this.normal)];
+                    }
+                    return [];
+                }
+            };
+            exports_2("Plane", Plane);
         }
     };
 });
@@ -239,11 +256,11 @@ System.register("color", [], function (exports_4, context_4) {
             Color = class Color {
                 constructor(r, g, b) {
                     if (!Number.isFinite(r))
-                        throw new Error(`r is ${r}`);
+                        console.warn(`r is ${r}`);
                     if (!Number.isFinite(g))
-                        throw new Error(`g is ${g}`);
+                        console.warn(`g is ${g}`);
                     if (!Number.isFinite(b))
-                        throw new Error(`b is ${b}`);
+                        console.warn(`b is ${b}`);
                     this.r = Math.min(1.0, Math.max(0.0, r));
                     this.g = Math.min(1.0, Math.max(0.0, g));
                     this.b = Math.min(1.0, Math.max(0.0, b));
@@ -423,6 +440,7 @@ System.register("scene", ["camera", "util", "color", "vector", "material", "geom
                 constructor() {
                     this.items = [];
                     this.camera = new camera_1.Camera();
+                    this.items.push(new Item(new geometry_2.Plane(vector_4.V(0, -150, 0), vector_4.Vector.Y), new material_1.ShinyMaterial(color_2.RGB(0.10, 0.15, 0.10), 1.0, 0.5)));
                     for (let x = 0; x < 4; x++)
                         for (let y = 0; y < 4; y++)
                             for (let z = 0; z < 4; z++) {
@@ -430,6 +448,8 @@ System.register("scene", ["camera", "util", "color", "vector", "material", "geom
                                 const useGlass = z < 2 && x > 0 && x < 3 && y > 0 && y < 3;
                                 if (useGlass)
                                     continue; // wow! it's invisible! how realistic.
+                                if (Math.random() < 0.25)
+                                    continue;
                                 const color = util_1.randomChoice([color_2.Color.RED, color_2.Color.BLUE, color_2.Color.GREEN]);
                                 const material = new (util_1.randomChoice(useGlass ? [material_1.GlassMaterial] : [material_1.ShinyMaterial, material_1.MatteMaterial]))(color, 0.5 * Math.random(), Math.random());
                                 this.items.push(new Item(geometry, material));
@@ -466,8 +486,8 @@ System.register("raytracer", ["color", "geometry"], function (exports_8, context
         execute: function () {
             RayTracer = class RayTracer {
                 constructor(scene) {
-                    this.maxSamplesPerBounce = 4;
-                    this.maxBounces = 16;
+                    this.maxSamplesPerBounce = 1;
+                    this.maxBounces = 4;
                     this.scene = scene;
                 }
                 getRayColor(ray, previousHit) {

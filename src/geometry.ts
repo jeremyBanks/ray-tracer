@@ -57,8 +57,8 @@ export abstract class Geometry {
 
 
 export class Sphere extends Geometry {
-    center: Vector;
-    radius: number;
+    readonly center: Vector;
+    readonly radius: number;
 
     constructor(center: Vector, radius: number) {
         super();
@@ -92,5 +92,27 @@ export class Sphere extends Geometry {
         } else {
             return [];
         }
+    }
+}
+
+
+export class Plane extends Geometry {
+    readonly origin: Vector;
+    readonly normal: Vector;
+
+    constructor(origin: Vector, normal: Vector) {
+        super();
+        this.origin = origin;
+        this.normal = normal;
+    }
+    
+    allHits(ray: Ray): Hit[] {
+        const dot = ray.direction.dot(this.normal);
+        if (Math.abs(dot) > 0.001) {
+            const origin = ray.origin.sub(this.origin);
+            const t = this.normal.dot(origin) / -dot;
+            return [new Hit(ray, t, ray.at(t), this.normal)];
+        }
+        return [];
     }
 }

@@ -7,8 +7,8 @@ import {Ray, Hit} from 'geometry';
 export class RayTracer {
     readonly scene: Scene;
 
-    readonly maxSamplesPerBounce = 4;
-    readonly maxBounces = 16;
+    readonly maxSamplesPerBounce = 1;
+    readonly maxBounces = 4;
 
     constructor(scene: Scene) {
         this.scene = scene;
