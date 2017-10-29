@@ -7,7 +7,7 @@ import {Ray, Hit} from 'geometry';
 export class RayTracer {
     readonly scene: Scene;
 
-    readonly maxSamplesPerBounce = 2;
+    readonly maxSamplesPerBounce = 4;
     readonly maxBounces = 16;
 
     constructor(scene: Scene) {
@@ -34,28 +34,25 @@ export class RayTracer {
             const tracedHit = new TracedHit(closestHit, closestHitItem, previousHit);
             const material = closestHitItem.material;
 
-            if (material.colorStrength < 1.0) {
-                // halve samples after each bounce, down to minimum of 1.
-                const samplesPerBounce = Math.ceil(this.maxSamplesPerBounce / Math.pow(2, tracedHit.previousCount));
-                const samples: Color[] = [];
-                for (let i = 0; i < samplesPerBounce; i++) {
-                    const reflection = new Ray(closestHit.location, material.getDeflection(closestHit));
-                    const color = this.getRayColor(reflection, tracedHit);
-                    samples.push(color);
-                }
-
-                return Color.blend(
-                    [material.colorStrength, material.color],
-                    [1 - material.colorStrength, Color.blend(...samples)]
-                );
-            } else {
-                return material.color;
+            // halve samples after each bounce, down to minimum of 1.
+            const samplesPerBounce = Math.ceil(this.maxSamplesPerBounce / Math.pow(2, tracedHit.previousCount));
+            const samples: Color[] = [];
+            for (let i = 0; i < samplesPerBounce; i++) {
+                const deflection = new Ray(closestHit.location, material.getDeflection(closestHit));
+                const color = this.getRayColor(deflection, tracedHit);
+                samples.push(color);
             }
+            const deflectedColor = Color.blend(...samples);
+            const blendColor = Color.blend(
+                [material.colorStrength, material.color],
+                [1 - material.colorStrength, Color.WHITE]);
+
+            return Color.multiply(blendColor, deflectedColor);
         }
         
         // background
-        const a = Math.sqrt(ray.direction.y * 0.5 + 0.5);
-        return RGB(a, a, a);
+        if (ray.direction.y > 0.5) return Color.WHITE;
+        else return Color.BLACK;
     }
 }
 

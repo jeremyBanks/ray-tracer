@@ -219,7 +219,7 @@ System.register("camera", ["vector", "geometry"], function (exports_3, context_3
                 // range if you're doing something like sampling.
                 getRay(x, y) {
                     // This only works for our hard-coded direction V(0, 0, 1).
-                    const lensPoint = this.location.add(vector_2.V(-this.halfWidth + x * this.width, -this.halfHeight + y * this.height, 0));
+                    const lensPoint = this.location.add(vector_2.V(this.halfWidth - x * this.width, this.halfHeight - y * this.height, 0));
                     return new geometry_1.Ray(lensPoint, lensPoint.sub(this.focalPoint));
                 }
             };
@@ -426,7 +426,7 @@ System.register("scene", ["camera", "util", "color", "vector", "material", "geom
                     for (let x = 0; x < 4; x++)
                         for (let y = 0; y < 4; y++)
                             for (let z = 0; z < 4; z++) {
-                                const geometry = new geometry_2.Sphere(vector_4.V(-200 + x * 120, 250 - 130 * y, 700 + 200 * z), 50);
+                                const geometry = new geometry_2.Sphere(vector_4.V(-200 + x * 120, 250 - 130 * y, 1200 + 200 * z), 50);
                                 const useGlass = z < 2 && x > 0 && x < 3 && y > 0 && y < 3;
                                 if (useGlass)
                                     continue; // wow! it's invisible! how realistic.
@@ -466,7 +466,7 @@ System.register("raytracer", ["color", "geometry"], function (exports_8, context
         execute: function () {
             RayTracer = class RayTracer {
                 constructor(scene) {
-                    this.maxSamplesPerBounce = 2;
+                    this.maxSamplesPerBounce = 4;
                     this.maxBounces = 16;
                     this.scene = scene;
                 }
@@ -486,24 +486,23 @@ System.register("raytracer", ["color", "geometry"], function (exports_8, context
                     if (closestHit && closestHitItem) {
                         const tracedHit = new TracedHit(closestHit, closestHitItem, previousHit);
                         const material = closestHitItem.material;
-                        if (material.colorStrength < 1.0) {
-                            // halve samples after each bounce, down to minimum of 1.
-                            const samplesPerBounce = Math.ceil(this.maxSamplesPerBounce / Math.pow(2, tracedHit.previousCount));
-                            const samples = [];
-                            for (let i = 0; i < samplesPerBounce; i++) {
-                                const reflection = new geometry_3.Ray(closestHit.location, material.getDeflection(closestHit));
-                                const color = this.getRayColor(reflection, tracedHit);
-                                samples.push(color);
-                            }
-                            return color_3.Color.blend([material.colorStrength, material.color], [1 - material.colorStrength, color_3.Color.blend(...samples)]);
+                        // halve samples after each bounce, down to minimum of 1.
+                        const samplesPerBounce = Math.ceil(this.maxSamplesPerBounce / Math.pow(2, tracedHit.previousCount));
+                        const samples = [];
+                        for (let i = 0; i < samplesPerBounce; i++) {
+                            const deflection = new geometry_3.Ray(closestHit.location, material.getDeflection(closestHit));
+                            const color = this.getRayColor(deflection, tracedHit);
+                            samples.push(color);
                         }
-                        else {
-                            return material.color;
-                        }
+                        const deflectedColor = color_3.Color.blend(...samples);
+                        const blendColor = color_3.Color.blend([material.colorStrength, material.color], [1 - material.colorStrength, color_3.Color.WHITE]);
+                        return color_3.Color.multiply(blendColor, deflectedColor);
                     }
                     // background
-                    const a = Math.sqrt(ray.direction.y * 0.5 + 0.5);
-                    return color_3.RGB(a, a, a);
+                    if (ray.direction.y > 0.5)
+                        return color_3.Color.WHITE;
+                    else
+                        return color_3.Color.BLACK;
                 }
             };
             exports_8("RayTracer", RayTracer);

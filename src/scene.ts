@@ -11,7 +11,7 @@ export class Scene {
 
     constructor() {
         for (let x = 0; x < 4; x++) for (let y = 0; y < 4; y++) for (let z = 0; z < 4; z++) {
-            const geometry = new Sphere(V(-200 + x * 120, 250 - 130 * y, 700 + 200 * z), 50);
+            const geometry = new Sphere(V(-200 + x * 120, 250 - 130 * y, 1200 + 200 * z), 50);
 
             const useGlass = z < 2 && x > 0 && x < 3 && y > 0 && y < 3;
             if (useGlass) continue; // wow! it's invisible! how realistic.

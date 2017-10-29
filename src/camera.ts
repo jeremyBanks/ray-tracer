@@ -35,7 +35,7 @@ export class Camera {
     getRay(x: number, y: number) {
         // This only works for our hard-coded direction V(0, 0, 1).
         const lensPoint = this.location.add(V(
-            -this.halfWidth + x * this.width, -this.halfHeight + y * this.height, 0));
+            this.halfWidth - x * this.width, this.halfHeight - y * this.height, 0));
 
         return new Ray(lensPoint, lensPoint.sub(this.focalPoint));
     }
