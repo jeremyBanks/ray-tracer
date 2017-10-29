@@ -11,6 +11,6 @@ canvas, img:not([src]) {
 
 img, canvas {
     background: #444;
-    margin: 64px;
+    margin: 32px;
     image-rendering: pixelated;
 }

@@ -3,18 +3,20 @@ import {Vector, V} from './vector';
 import {Ray, Hit, Geometry, Sphere} from './geometry';
 import {Camera} from './camera';
 import {randomChoice} from './util';
-import * as settings from './settings';
 
 
 export class RayTracer {
     readonly scene: Scene;
+
+    readonly maxSamplesPerBounce = 4;
+    readonly maxBounces = 16;
 
     constructor(scene: Scene) {
         this.scene = scene;
     }
 
     getRayColor(ray: Ray, previousHit?: RayHit): Color {
-        if ((previousHit ? previousHit.previousHits : 0) + 1 >= settings.maxBounces) {
+        if ((previousHit ? previousHit.previousHits : 0) + 1 >= this.maxBounces) {
             return Color.BLACK;
         }
 
@@ -61,7 +63,7 @@ class MatteMaterial extends Material {
 
     hitColor(tracer: RayTracer, rayHit: RayHit): Color {
         const colors: [number, Color][] = [];
-        const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / Math.pow(2, rayHit.previousHits));
+        const samplesPerBounce = Math.ceil(tracer.maxSamplesPerBounce / Math.pow(2, rayHit.previousHits));
         for (let i = 0; i < samplesPerBounce; i++) {
             colors.push([1, this.color]);
             const scatteredRay = new Ray(rayHit.hit.location, rayHit.hit.normal.add(Vector.randomUnit().scale(this.fuzz)).direction());
@@ -80,7 +82,7 @@ class ShinyMaterial extends Material {
         const direction = rayHit.hit.ray.direction;
         const reflection = direction.sub(rayHit.hit.normal.scale(2 * direction.dot(rayHit.hit.normal))).direction();
         const colors: [number, Color][] = [];
-        const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / Math.pow(2, rayHit.previousHits));
+        const samplesPerBounce = Math.ceil(tracer.maxSamplesPerBounce / Math.pow(2, rayHit.previousHits));
         for (let i = 0; i < samplesPerBounce; i++) {
             colors.push([1, this.color]);
             const reflectedRay = new Ray(rayHit.hit.location, reflection.add(Vector.randomUnit().scale(this.fuzz)).direction());

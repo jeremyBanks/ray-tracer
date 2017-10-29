@@ -306,24 +306,10 @@ System.register("util", [], function (exports_5, context_5) {
         }
     };
 });
-System.register("settings", [], function (exports_6, context_6) {
+System.register("raytracer", ["color", "vector", "geometry", "camera", "util"], function (exports_6, context_6) {
     "use strict";
     var __moduleName = context_6 && context_6.id;
-    var samplesPerPixel, intraSampleDelay, maxSamplesPerBounce, maxBounces;
-    return {
-        setters: [],
-        execute: function () {
-            exports_6("samplesPerPixel", samplesPerPixel = Infinity);
-            exports_6("intraSampleDelay", intraSampleDelay = 1000);
-            exports_6("maxSamplesPerBounce", maxSamplesPerBounce = 4);
-            exports_6("maxBounces", maxBounces = 16);
-        }
-    };
-});
-System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "settings"], function (exports_7, context_7) {
-    "use strict";
-    var __moduleName = context_7 && context_7.id;
-    var color_1, vector_3, geometry_2, camera_1, util_1, settings, RayTracer, Material, MatteMaterial, ShinyMaterial, GlassMaterial, RayHit, Scene, Item;
+    var color_1, vector_3, geometry_2, camera_1, util_1, RayTracer, Material, MatteMaterial, ShinyMaterial, GlassMaterial, RayHit, Scene, Item;
     return {
         setters: [
             function (color_1_1) {
@@ -340,18 +326,17 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
             },
             function (util_1_1) {
                 util_1 = util_1_1;
-            },
-            function (settings_1) {
-                settings = settings_1;
             }
         ],
         execute: function () {
             RayTracer = class RayTracer {
                 constructor(scene) {
+                    this.maxSamplesPerBounce = 4;
+                    this.maxBounces = 16;
                     this.scene = scene;
                 }
                 getRayColor(ray, previousHit) {
-                    if ((previousHit ? previousHit.previousHits : 0) + 1 >= settings.maxBounces) {
+                    if ((previousHit ? previousHit.previousHits : 0) + 1 >= this.maxBounces) {
                         return color_1.Color.BLACK;
                     }
                     let closestHit;
@@ -372,7 +357,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
                     return color_1.RGB(a * 0.1, a * 0.2, a * 0.3);
                 }
             };
-            exports_7("RayTracer", RayTracer);
+            exports_6("RayTracer", RayTracer);
             /** A material a Hittable can be made of, determining how it's rendered. */
             Material = class Material {
                 constructor(color) {
@@ -383,7 +368,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
                     return this.color;
                 }
             };
-            exports_7("Material", Material);
+            exports_6("Material", Material);
             /** A material that scatters rays, ignoring their incoming angle. */
             MatteMaterial = class MatteMaterial extends Material {
                 constructor() {
@@ -392,7 +377,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
                 }
                 hitColor(tracer, rayHit) {
                     const colors = [];
-                    const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / Math.pow(2, rayHit.previousHits));
+                    const samplesPerBounce = Math.ceil(tracer.maxSamplesPerBounce / Math.pow(2, rayHit.previousHits));
                     for (let i = 0; i < samplesPerBounce; i++) {
                         colors.push([1, this.color]);
                         const scatteredRay = new geometry_2.Ray(rayHit.hit.location, rayHit.hit.normal.add(vector_3.Vector.randomUnit().scale(this.fuzz)).direction());
@@ -411,7 +396,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
                     const direction = rayHit.hit.ray.direction;
                     const reflection = direction.sub(rayHit.hit.normal.scale(2 * direction.dot(rayHit.hit.normal))).direction();
                     const colors = [];
-                    const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / Math.pow(2, rayHit.previousHits));
+                    const samplesPerBounce = Math.ceil(tracer.maxSamplesPerBounce / Math.pow(2, rayHit.previousHits));
                     for (let i = 0; i < samplesPerBounce; i++) {
                         colors.push([1, this.color]);
                         const reflectedRay = new geometry_2.Ray(rayHit.hit.location, reflection.add(vector_3.Vector.randomUnit().scale(this.fuzz)).direction());
@@ -436,7 +421,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
                     this.previousHits = previousHit ? previousHit.previousHits + 1 : 0;
                 }
             };
-            exports_7("RayHit", RayHit);
+            exports_6("RayHit", RayHit);
             Scene = class Scene {
                 constructor() {
                     this.items = [];
@@ -454,7 +439,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
                             }
                 }
             };
-            exports_7("Scene", Scene);
+            exports_6("Scene", Scene);
             Item = class Item {
                 constructor(geometry, material) {
                     this.geometry = geometry;
@@ -464,26 +449,25 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
                     return `${this.material} ${this.geometry}`;
                 }
             };
-            exports_7("Item", Item);
+            exports_6("Item", Item);
         }
     };
 });
-System.register("canvasrenderer", ["color", "settings"], function (exports_8, context_8) {
+System.register("canvasrenderer", ["color"], function (exports_7, context_7) {
     "use strict";
-    var __moduleName = context_8 && context_8.id;
-    var color_2, settings, CanvasRenderer;
+    var __moduleName = context_7 && context_7.id;
+    var color_2, CanvasRenderer;
     return {
         setters: [
             function (color_2_1) {
                 color_2 = color_2_1;
-            },
-            function (settings_2) {
-                settings = settings_2;
             }
         ],
         execute: function () {
             CanvasRenderer = class CanvasRenderer {
                 constructor(width = 256, height = width) {
+                    this.samplesPerPixel = Infinity;
+                    this.intraSampleDelay = 1000;
                     this.width = width;
                     this.height = height;
                     this.canvas = document.createElement('canvas');
@@ -512,7 +496,7 @@ System.register("canvasrenderer", ["color", "settings"], function (exports_8, co
                         }
                         samples.push(row);
                     }
-                    for (let i = 0; i < settings.samplesPerPixel; i++) {
+                    for (let i = 0; i < this.samplesPerPixel; i++) {
                         if (i > 0) {
                             for (let x = 0; x < this.width; x++)
                                 for (let y = 0; y < this.height; y++) {
@@ -526,7 +510,7 @@ System.register("canvasrenderer", ["color", "settings"], function (exports_8, co
                                     this.image.data[offset + 3] = 0xFF;
                                 }
                             this.context.putImageData(this.image, 0, 0);
-                            await new Promise(r => setTimeout(r, settings.intraSampleDelay));
+                            await new Promise(r => setTimeout(r, this.intraSampleDelay));
                         }
                         for (let yOffset = 0; yOffset < this.height; yOffset += chunkSize) {
                             for (let xOffset = 0; xOffset < this.width; xOffset += chunkSize) {
@@ -557,13 +541,13 @@ System.register("canvasrenderer", ["color", "settings"], function (exports_8, co
                     }
                 }
             };
-            exports_8("CanvasRenderer", CanvasRenderer);
+            exports_7("CanvasRenderer", CanvasRenderer);
         }
     };
 });
-System.register("main", ["raytracer", "canvasrenderer"], function (exports_9, context_9) {
+System.register("main", ["raytracer", "canvasrenderer"], function (exports_8, context_8) {
     "use strict";
-    var __moduleName = context_9 && context_9.id;
+    var __moduleName = context_8 && context_8.id;
     var raytracer_1, canvasrenderer_1, main;
     return {
         setters: [
@@ -578,7 +562,7 @@ System.register("main", ["raytracer", "canvasrenderer"], function (exports_9, co
             main = () => {
                 const scene = new raytracer_1.Scene();
                 const rayTracer = new raytracer_1.RayTracer(scene);
-                const renderer = new canvasrenderer_1.CanvasRenderer(400, 300);
+                const renderer = new canvasrenderer_1.CanvasRenderer(600, 400);
                 document.body.appendChild(renderer.output);
                 document.body.appendChild(renderer.canvas);
                 renderer.render(rayTracer);

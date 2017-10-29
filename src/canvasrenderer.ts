@@ -1,6 +1,5 @@
 import {Color} from './color';
 import {RayTracer} from './raytracer';
-import * as settings from './settings';
 
 
 export class CanvasRenderer {
@@ -8,6 +7,9 @@ export class CanvasRenderer {
     readonly context: CanvasRenderingContext2D;
     readonly image: ImageData;
     readonly output: HTMLImageElement;
+
+    readonly samplesPerPixel = Infinity;
+    readonly intraSampleDelay = 1000;
 
     readonly width: number;
     readonly height: number;
@@ -46,7 +48,7 @@ export class CanvasRenderer {
             samples.push(row);
         }
 
-        for (let i = 0; i < settings.samplesPerPixel; i++) {
+        for (let i = 0; i < this.samplesPerPixel; i++) {
             if (i > 0) {
                 for (let x = 0; x < this.width; x++) for (let y = 0; y < this.height; y++) {
                     // replace the canvas contents with a non-gamma-transformed version, so
@@ -59,7 +61,7 @@ export class CanvasRenderer {
                     this.image.data[offset + 3] = 0xFF;
                 }
                 this.context.putImageData(this.image, 0, 0);
-                await new Promise(r => setTimeout(r, settings.intraSampleDelay));
+                await new Promise(r => setTimeout(r, this.intraSampleDelay));
             }
 
             for (let yOffset = 0; yOffset < this.height; yOffset += chunkSize) {

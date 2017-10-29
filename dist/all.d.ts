@@ -97,18 +97,14 @@ declare module "color" {
 declare module "util" {
     export const randomChoice: <T>(choices: T[]) => T;
 }
-declare module "settings" {
-    export const samplesPerPixel: number;
-    export const intraSampleDelay = 1000;
-    export const maxSamplesPerBounce = 4;
-    export const maxBounces = 16;
-}
 declare module "raytracer" {
     import { Color } from "color";
     import { Ray, Hit, Geometry } from "geometry";
     import { Camera } from "camera";
     export class RayTracer {
         readonly scene: Scene;
+        readonly maxSamplesPerBounce: number;
+        readonly maxBounces: number;
         constructor(scene: Scene);
         getRayColor(ray: Ray, previousHit?: RayHit): Color;
     }
@@ -145,6 +141,8 @@ declare module "canvasrenderer" {
         readonly context: CanvasRenderingContext2D;
         readonly image: ImageData;
         readonly output: HTMLImageElement;
+        readonly samplesPerPixel: number;
+        readonly intraSampleDelay: number;
         readonly width: number;
         readonly height: number;
         constructor(width?: number, height?: number);
