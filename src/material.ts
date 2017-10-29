@@ -38,7 +38,7 @@ export class MatteMaterial extends Material {
             const scatteredRay = new Ray(tracedHit.hit.location, tracedHit.hit.normal.add(Vector.randomUnit().scale(this.fuzz)).direction());
             colors.push([2, tracer.getRayColor(scatteredRay, tracedHit)]);
         }
-        return Color.blend(colors);
+        return Color.blend(...colors);
     }
 }
 
@@ -57,7 +57,7 @@ export class ShinyMaterial extends Material {
             const reflectedRay = new Ray(tracedHit.hit.location, reflection.add(Vector.randomUnit().scale(this.fuzz)).direction());
             colors.push([2, tracer.getRayColor(reflectedRay, tracedHit)]);
         }
-        return Color.blend(colors);
+        return Color.blend(...colors);
     }
 }
 

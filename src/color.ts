@@ -38,8 +38,8 @@ export class Color {
             Math.pow(this.b, exponent));
     }
 
-    // Blends an array of colors, each optionally with an associated weight.
-    static blend(colors: (Color | [number, Color])[]) {
+    // linerally an array of colors, each optionally with an associated weight.
+    static blend(...colors: (Color | [number, Color])[]) {
         if (colors.length == 0) {
             throw new Error("can't blend array of 0 colors");
         }
@@ -60,5 +60,26 @@ export class Color {
             max += weight;
         }
         return new Color(r / max, g / max, b / max);
+    }
+
+    static multiply(...colors: Color[]) {
+        let [r, g, b] = [1, 1, 1];
+        for (const c of colors) {
+            r = r * c.r;
+            g = g * c.g;
+            b = b * c.b;
+        }
+        return new Color(r, g, b);
+
+    }
+
+    static screen(...colors: Color[]) {
+        let [r, g, b] = [0, 0, 0];
+        for (const c of colors) {
+            r = (1 - r) * (1 - c.r);
+            g = (1 - g) * (1 - c.g);
+            b = (1 - b) * (1 - c.b);
+        }
+        return new Color(r, g, b);
     }
 }

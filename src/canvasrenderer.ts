@@ -53,7 +53,7 @@ export class CanvasRenderer {
                 for (let x = 0; x < this.width; x++) for (let y = 0; y < this.height; y++) {
                     // replace the canvas contents with a non-gamma-transformed version, so
                     // it's easier to see the new samples coming in over top.
-                    const pixel = Color.blend(samples[y][x]);
+                    const pixel = Color.blend(...samples[y][x]);
                     const offset = (y * this.width + x) * 4;
                     this.image.data[offset + 0] = pixel.r8;
                     this.image.data[offset + 1] = pixel.g8;
@@ -82,7 +82,7 @@ export class CanvasRenderer {
                                     (xPadding + x + dx) / (size - 1),
                                     (yPadding + y + dy) / (size - 1))));
                             
-                            const pixel = Color.blend(samples[y][x]).pow(0.45);
+                            const pixel = Color.blend(...samples[y][x]).pow(0.45);
             
                             const offset = (y * this.width + x) * 4;
                             this.image.data[offset + 0] = pixel.r8;

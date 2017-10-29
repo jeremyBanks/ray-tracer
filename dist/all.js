@@ -256,8 +256,8 @@ System.register("color", [], function (exports_4, context_4) {
                 pow(exponent) {
                     return new Color(Math.pow(this.r, exponent), Math.pow(this.g, exponent), Math.pow(this.b, exponent));
                 }
-                // Blends an array of colors, each optionally with an associated weight.
-                static blend(colors) {
+                // linerally an array of colors, each optionally with an associated weight.
+                static blend(...colors) {
                     if (colors.length == 0) {
                         throw new Error("can't blend array of 0 colors");
                     }
@@ -278,6 +278,24 @@ System.register("color", [], function (exports_4, context_4) {
                         max += weight;
                     }
                     return new Color(r / max, g / max, b / max);
+                }
+                static multiply(...colors) {
+                    let [r, g, b] = [1, 1, 1];
+                    for (const c of colors) {
+                        r = r * c.r;
+                        g = g * c.g;
+                        b = b * c.b;
+                    }
+                    return new Color(r, g, b);
+                }
+                static screen(...colors) {
+                    let [r, g, b] = [0, 0, 0];
+                    for (const c of colors) {
+                        r = (1 - r) * (1 - c.r);
+                        g = (1 - g) * (1 - c.g);
+                        b = (1 - b) * (1 - c.b);
+                    }
+                    return new Color(r, g, b);
                 }
             };
             Color.BLACK = Object.freeze(new Color(0, 0, 0));
@@ -357,7 +375,7 @@ System.register("material", ["geometry", "vector", "color"], function (exports_6
                         const scatteredRay = new geometry_2.Ray(tracedHit.hit.location, tracedHit.hit.normal.add(vector_3.Vector.randomUnit().scale(this.fuzz)).direction());
                         colors.push([2, tracer.getRayColor(scatteredRay, tracedHit)]);
                     }
-                    return color_1.Color.blend(colors);
+                    return color_1.Color.blend(...colors);
                 }
             };
             exports_6("MatteMaterial", MatteMaterial);
@@ -377,7 +395,7 @@ System.register("material", ["geometry", "vector", "color"], function (exports_6
                         const reflectedRay = new geometry_2.Ray(tracedHit.hit.location, reflection.add(vector_3.Vector.randomUnit().scale(this.fuzz)).direction());
                         colors.push([2, tracer.getRayColor(reflectedRay, tracedHit)]);
                     }
-                    return color_1.Color.blend(colors);
+                    return color_1.Color.blend(...colors);
                 }
             };
             exports_6("ShinyMaterial", ShinyMaterial);
@@ -551,7 +569,7 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                                 for (let y = 0; y < this.height; y++) {
                                     // replace the canvas contents with a non-gamma-transformed version, so
                                     // it's easier to see the new samples coming in over top.
-                                    const pixel = color_4.Color.blend(samples[y][x]);
+                                    const pixel = color_4.Color.blend(...samples[y][x]);
                                     const offset = (y * this.width + x) * 4;
                                     this.image.data[offset + 0] = pixel.r8;
                                     this.image.data[offset + 1] = pixel.g8;
@@ -574,7 +592,7 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                                         const dx = Math.random() - 0.5;
                                         const dy = Math.random() - 0.5;
                                         samples[y][x].push(rayTracer.getRayColor(rayTracer.scene.camera.getRay((xPadding + x + dx) / (size - 1), (yPadding + y + dy) / (size - 1))));
-                                        const pixel = color_4.Color.blend(samples[y][x]).pow(0.45);
+                                        const pixel = color_4.Color.blend(...samples[y][x]).pow(0.45);
                                         const offset = (y * this.width + x) * 4;
                                         this.image.data[offset + 0] = pixel.r8;
                                         this.image.data[offset + 1] = pixel.g8;
