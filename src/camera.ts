@@ -1,5 +1,5 @@
-import {Vector, V} from './vector';
-import {Ray} from './geometry';
+import {Vector, V} from 'vector';
+import {Ray} from 'geometry';
 
 
 export class Camera {

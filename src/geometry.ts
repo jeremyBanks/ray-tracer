@@ -1,4 +1,4 @@
-import {Vector} from './vector';
+import {Vector} from 'vector';
 
 
 /** A ray proceeding from a point in a constant direction at one unit distance per one unit time. */

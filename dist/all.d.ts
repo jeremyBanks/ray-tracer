@@ -97,31 +97,10 @@ declare module "color" {
 declare module "util" {
     export const randomChoice: <T>(choices: T[]) => T;
 }
-declare module "raytracer" {
-    import { Color } from "color";
-    import { Ray, Hit, Geometry } from "geometry";
+declare module "scene" {
     import { Camera } from "camera";
-    export class RayTracer {
-        readonly scene: Scene;
-        readonly maxSamplesPerBounce: number;
-        readonly maxBounces: number;
-        constructor(scene: Scene);
-        getRayColor(ray: Ray, previousHit?: RayHit): Color;
-    }
-    /** A material a Hittable can be made of, determining how it's rendered. */
-    export class Material {
-        readonly color: Color;
-        constructor(color: Color);
-        hitColor(tracer: RayTracer, rayHit: RayHit): Color;
-    }
-    /** All of the information about a hit and its ray. */
-    export class RayHit {
-        readonly subject: Item;
-        readonly hit: Hit;
-        readonly previousHit: RayHit | null;
-        readonly previousHits: number;
-        constructor(hit: Hit, subject: Item, previousHit?: RayHit);
-    }
+    import { Material } from './material';
+    import { Geometry } from "geometry";
     export class Scene {
         items: Item[];
         camera: Camera;
@@ -132,6 +111,26 @@ declare module "raytracer" {
         material: Material;
         constructor(geometry: Geometry, material: Material);
         toString(): string;
+    }
+}
+declare module "raytracer" {
+    import { Color } from "color";
+    import { Scene, Item } from "scene";
+    import { Ray, Hit } from "geometry";
+    export class RayTracer {
+        readonly scene: Scene;
+        readonly maxSamplesPerBounce: number;
+        readonly maxBounces: number;
+        constructor(scene: Scene);
+        getRayColor(ray: Ray, previousHit?: TracedHit): Color;
+    }
+    /** All of the information about a hit and its ray. */
+    export class TracedHit {
+        readonly subject: Item;
+        readonly hit: Hit;
+        readonly previous: TracedHit | null;
+        readonly previousCount: number;
+        constructor(hit: Hit, subject: Item, previousHit?: TracedHit);
     }
 }
 declare module "canvasrenderer" {

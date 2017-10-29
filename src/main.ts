@@ -1,5 +1,7 @@
-import {RayTracer, Scene} from './raytracer';
-import {CanvasRenderer} from './canvasrenderer';
+import {RayTracer} from 'raytracer';
+import {Scene} from 'scene';
+import {CanvasRenderer} from 'canvasrenderer';
+
 
 const main = () => {
     const scene = new Scene();

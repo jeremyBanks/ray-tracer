@@ -1,5 +1,5 @@
-import {Color} from './color';
-import {RayTracer} from './raytracer';
+import {Color} from 'color';
+import {RayTracer} from 'raytracer';
 
 
 export class CanvasRenderer {

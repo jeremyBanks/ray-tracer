@@ -306,38 +306,169 @@ System.register("util", [], function (exports_5, context_5) {
         }
     };
 });
-System.register("raytracer", ["color", "vector", "geometry", "camera", "util"], function (exports_6, context_6) {
+System.register("material", ["geometry", "vector", "color"], function (exports_6, context_6) {
     "use strict";
     var __moduleName = context_6 && context_6.id;
-    var color_1, vector_3, geometry_2, camera_1, util_1, RayTracer, Material, MatteMaterial, ShinyMaterial, GlassMaterial, RayHit, Scene, Item;
+    var geometry_2, vector_3, color_1, Material, MatteMaterial, ShinyMaterial, GlassMaterial;
     return {
         setters: [
-            function (color_1_1) {
-                color_1 = color_1_1;
+            function (geometry_2_1) {
+                geometry_2 = geometry_2_1;
             },
             function (vector_3_1) {
                 vector_3 = vector_3_1;
             },
-            function (geometry_2_1) {
-                geometry_2 = geometry_2_1;
-            },
+            function (color_1_1) {
+                color_1 = color_1_1;
+            }
+        ],
+        execute: function () {
+            /** A material a Hittable can be made of, determining how it's rendered. */
+            Material = class Material {
+                constructor(color, opacity) {
+                    this.color = color_1.Color.MAGENTA;
+                    this.colorStrength = 1.0;
+                    this.color = color;
+                    this.colorStrength = Math.max(0, Math.min(1, opacity));
+                }
+                /**
+                 * generate a possible angle of reflection.
+                 * this can produce randomized results; it will be called multiple times.
+                 * if possible the random element should be scaled by fuzziness, down to
+                 * a non-random behaviour at 0.0.
+                 */
+                getReflection(hit, fuzziness) {
+                    // just let the ray pass through
+                    return hit.ray.direction;
+                }
+            };
+            exports_6("Material", Material);
+            /** A material that scatters rays, ignoring their incoming angle. */
+            MatteMaterial = class MatteMaterial extends Material {
+                constructor() {
+                    super(...arguments);
+                    this.fuzz = Math.sqrt(Math.random());
+                }
+                hitColor(tracer, tracedHit) {
+                    const colors = [];
+                    const samplesPerBounce = Math.ceil(tracer.maxSamplesPerBounce / Math.pow(2, tracedHit.previousHits));
+                    for (let i = 0; i < samplesPerBounce; i++) {
+                        colors.push([1, this.color]);
+                        const scatteredRay = new geometry_2.Ray(tracedHit.hit.location, tracedHit.hit.normal.add(vector_3.Vector.randomUnit().scale(this.fuzz)).direction());
+                        colors.push([2, tracer.getRayColor(scatteredRay, tracedHit)]);
+                    }
+                    return color_1.Color.blend(colors);
+                }
+            };
+            exports_6("MatteMaterial", MatteMaterial);
+            /** A material that reflects rays. */
+            ShinyMaterial = class ShinyMaterial extends Material {
+                constructor() {
+                    super(...arguments);
+                    this.fuzz = Math.pow(Math.random(), 2);
+                }
+                hitColor(tracer, tracedHit) {
+                    const direction = tracedHit.hit.ray.direction;
+                    const reflection = direction.sub(tracedHit.hit.normal.scale(2 * direction.dot(tracedHit.hit.normal))).direction();
+                    const colors = [];
+                    const samplesPerBounce = Math.ceil(tracer.maxSamplesPerBounce / Math.pow(2, tracedHit.previousHits));
+                    for (let i = 0; i < samplesPerBounce; i++) {
+                        colors.push([1, this.color]);
+                        const reflectedRay = new geometry_2.Ray(tracedHit.hit.location, reflection.add(vector_3.Vector.randomUnit().scale(this.fuzz)).direction());
+                        colors.push([2, tracer.getRayColor(reflectedRay, tracedHit)]);
+                    }
+                    return color_1.Color.blend(colors);
+                }
+            };
+            exports_6("ShinyMaterial", ShinyMaterial);
+            /** A material that refracts rays. */
+            GlassMaterial = class GlassMaterial extends Material {
+                constructor() {
+                    super(...arguments);
+                    this.color = color_1.Color.BLACK;
+                }
+            };
+            exports_6("GlassMaterial", GlassMaterial);
+        }
+    };
+});
+System.register("scene", ["camera", "util", "color", "vector", "material", "geometry"], function (exports_7, context_7) {
+    "use strict";
+    var __moduleName = context_7 && context_7.id;
+    var camera_1, util_1, color_2, vector_4, material_1, geometry_3, Scene, Item;
+    return {
+        setters: [
             function (camera_1_1) {
                 camera_1 = camera_1_1;
             },
             function (util_1_1) {
                 util_1 = util_1_1;
+            },
+            function (color_2_1) {
+                color_2 = color_2_1;
+            },
+            function (vector_4_1) {
+                vector_4 = vector_4_1;
+            },
+            function (material_1_1) {
+                material_1 = material_1_1;
+            },
+            function (geometry_3_1) {
+                geometry_3 = geometry_3_1;
+            }
+        ],
+        execute: function () {
+            Scene = class Scene {
+                constructor() {
+                    this.items = [];
+                    this.camera = new camera_1.Camera();
+                    for (let x = 0; x < 4; x++)
+                        for (let y = 0; y < 4; y++)
+                            for (let z = 0; z < 4; z++) {
+                                const geometry = new geometry_3.Sphere(vector_4.V(-200 + x * 120, 250 - 130 * y, 700 + 200 * z), 50);
+                                const useGlass = z < 2 && x > 0 && x < 3 && y > 0 && y < 3;
+                                if (useGlass)
+                                    continue; // wow! it's invisible! how realistic.
+                                const color = util_1.randomChoice([color_2.Color.RED, color_2.Color.BLUE, color_2.Color.GREEN]);
+                                const material = new (util_1.randomChoice(useGlass ? [material_1.GlassMaterial] : [material_1.ShinyMaterial, material_1.MatteMaterial]))(color);
+                                this.items.push(new Item(geometry, material));
+                            }
+                }
+            };
+            exports_7("Scene", Scene);
+            Item = class Item {
+                constructor(geometry, material) {
+                    this.geometry = geometry;
+                    this.material = material;
+                }
+                toString() {
+                    return `${this.material} ${this.geometry}`;
+                }
+            };
+            exports_7("Item", Item);
+        }
+    };
+});
+System.register("raytracer", ["color"], function (exports_8, context_8) {
+    "use strict";
+    var __moduleName = context_8 && context_8.id;
+    var color_3, RayTracer, TracedHit;
+    return {
+        setters: [
+            function (color_3_1) {
+                color_3 = color_3_1;
             }
         ],
         execute: function () {
             RayTracer = class RayTracer {
                 constructor(scene) {
-                    this.maxSamplesPerBounce = 4;
+                    this.maxSamplesPerBounce = 2;
                     this.maxBounces = 16;
                     this.scene = scene;
                 }
                 getRayColor(ray, previousHit) {
-                    if ((previousHit ? previousHit.previousHits : 0) + 1 >= this.maxBounces) {
-                        return color_1.Color.BLACK;
+                    if ((previousHit ? previousHit.previousCount : 0) + 1 >= this.maxBounces) {
+                        return color_3.Color.BLACK;
                     }
                     let closestHit;
                     let closestHitItem;
@@ -349,118 +480,36 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util"], 
                         }
                     }
                     if (closestHit && closestHitItem) {
-                        const rayHit = new RayHit(closestHit, closestHitItem, previousHit);
-                        return closestHitItem.material.hitColor(this, rayHit);
+                        const tracedHit = new TracedHit(closestHit, closestHitItem, previousHit);
+                        return closestHitItem.material.hitColor(this, TracedHit);
                     }
                     // background, a light color reflecting the ray's direction.
                     const a = Math.pow(ray.direction.y + 1 / 2, 2);
-                    return color_1.RGB(a * 0.1, a * 0.2, a * 0.3);
+                    return color_3.RGB(a * 0.1, a * 0.2, a * 0.3);
                 }
             };
-            exports_6("RayTracer", RayTracer);
-            /** A material a Hittable can be made of, determining how it's rendered. */
-            Material = class Material {
-                constructor(color) {
-                    this.color = color_1.Color.MAGENTA;
-                    this.color = color;
-                }
-                hitColor(tracer, rayHit) {
-                    return this.color;
-                }
-            };
-            exports_6("Material", Material);
-            /** A material that scatters rays, ignoring their incoming angle. */
-            MatteMaterial = class MatteMaterial extends Material {
-                constructor() {
-                    super(...arguments);
-                    this.fuzz = Math.sqrt(Math.random());
-                }
-                hitColor(tracer, rayHit) {
-                    const colors = [];
-                    const samplesPerBounce = Math.ceil(tracer.maxSamplesPerBounce / Math.pow(2, rayHit.previousHits));
-                    for (let i = 0; i < samplesPerBounce; i++) {
-                        colors.push([1, this.color]);
-                        const scatteredRay = new geometry_2.Ray(rayHit.hit.location, rayHit.hit.normal.add(vector_3.Vector.randomUnit().scale(this.fuzz)).direction());
-                        colors.push([2, tracer.getRayColor(scatteredRay, rayHit)]);
-                    }
-                    return color_1.Color.blend(colors);
-                }
-            };
-            /** A material that reflects rays. */
-            ShinyMaterial = class ShinyMaterial extends Material {
-                constructor() {
-                    super(...arguments);
-                    this.fuzz = Math.pow(Math.random(), 2);
-                }
-                hitColor(tracer, rayHit) {
-                    const direction = rayHit.hit.ray.direction;
-                    const reflection = direction.sub(rayHit.hit.normal.scale(2 * direction.dot(rayHit.hit.normal))).direction();
-                    const colors = [];
-                    const samplesPerBounce = Math.ceil(tracer.maxSamplesPerBounce / Math.pow(2, rayHit.previousHits));
-                    for (let i = 0; i < samplesPerBounce; i++) {
-                        colors.push([1, this.color]);
-                        const reflectedRay = new geometry_2.Ray(rayHit.hit.location, reflection.add(vector_3.Vector.randomUnit().scale(this.fuzz)).direction());
-                        colors.push([2, tracer.getRayColor(reflectedRay, rayHit)]);
-                    }
-                    return color_1.Color.blend(colors);
-                }
-            };
-            /** A material that refracts rays. */
-            GlassMaterial = class GlassMaterial extends Material {
-                constructor() {
-                    super(...arguments);
-                    this.color = color_1.Color.BLACK;
-                }
-            };
+            exports_8("RayTracer", RayTracer);
             /** All of the information about a hit and its ray. */
-            RayHit = class RayHit {
+            TracedHit = class TracedHit {
                 constructor(hit, subject, previousHit) {
                     this.hit = hit;
                     this.subject = subject;
-                    this.previousHit = previousHit || null;
-                    this.previousHits = previousHit ? previousHit.previousHits + 1 : 0;
+                    this.previous = previousHit || null;
+                    this.previousCount = previousHit ? previousHit.previousCount + 1 : 0;
                 }
             };
-            exports_6("RayHit", RayHit);
-            Scene = class Scene {
-                constructor() {
-                    this.items = [];
-                    this.camera = new camera_1.Camera();
-                    for (let x = 0; x < 4; x++)
-                        for (let y = 0; y < 4; y++)
-                            for (let z = 0; z < 4; z++) {
-                                const geometry = new geometry_2.Sphere(vector_3.V(-200 + x * 120, 250 - 130 * y, 700 + 200 * z), 50);
-                                const useGlass = z < 2 && x > 0 && x < 3 && y > 0 && y < 3;
-                                if (useGlass)
-                                    continue; // wow! it's invisible! how realistic.
-                                const color = util_1.randomChoice([color_1.Color.RED, color_1.Color.BLUE, color_1.Color.GREEN]);
-                                const material = new (util_1.randomChoice(useGlass ? [GlassMaterial] : [ShinyMaterial, MatteMaterial]))(color);
-                                this.items.push(new Item(geometry, material));
-                            }
-                }
-            };
-            exports_6("Scene", Scene);
-            Item = class Item {
-                constructor(geometry, material) {
-                    this.geometry = geometry;
-                    this.material = material;
-                }
-                toString() {
-                    return `${this.material} ${this.geometry}`;
-                }
-            };
-            exports_6("Item", Item);
+            exports_8("TracedHit", TracedHit);
         }
     };
 });
-System.register("canvasrenderer", ["color"], function (exports_7, context_7) {
+System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
     "use strict";
-    var __moduleName = context_7 && context_7.id;
-    var color_2, CanvasRenderer;
+    var __moduleName = context_9 && context_9.id;
+    var color_4, CanvasRenderer;
     return {
         setters: [
-            function (color_2_1) {
-                color_2 = color_2_1;
+            function (color_4_1) {
+                color_4 = color_4_1;
             }
         ],
         execute: function () {
@@ -502,7 +551,7 @@ System.register("canvasrenderer", ["color"], function (exports_7, context_7) {
                                 for (let y = 0; y < this.height; y++) {
                                     // replace the canvas contents with a non-gamma-transformed version, so
                                     // it's easier to see the new samples coming in over top.
-                                    const pixel = color_2.Color.blend(samples[y][x]);
+                                    const pixel = color_4.Color.blend(samples[y][x]);
                                     const offset = (y * this.width + x) * 4;
                                     this.image.data[offset + 0] = pixel.r8;
                                     this.image.data[offset + 1] = pixel.g8;
@@ -525,7 +574,7 @@ System.register("canvasrenderer", ["color"], function (exports_7, context_7) {
                                         const dx = Math.random() - 0.5;
                                         const dy = Math.random() - 0.5;
                                         samples[y][x].push(rayTracer.getRayColor(rayTracer.scene.camera.getRay((xPadding + x + dx) / (size - 1), (yPadding + y + dy) / (size - 1))));
-                                        const pixel = color_2.Color.blend(samples[y][x]).pow(0.45);
+                                        const pixel = color_4.Color.blend(samples[y][x]).pow(0.45);
                                         const offset = (y * this.width + x) * 4;
                                         this.image.data[offset + 0] = pixel.r8;
                                         this.image.data[offset + 1] = pixel.g8;
@@ -541,18 +590,21 @@ System.register("canvasrenderer", ["color"], function (exports_7, context_7) {
                     }
                 }
             };
-            exports_7("CanvasRenderer", CanvasRenderer);
+            exports_9("CanvasRenderer", CanvasRenderer);
         }
     };
 });
-System.register("main", ["raytracer", "canvasrenderer"], function (exports_8, context_8) {
+System.register("main", ["raytracer", "scene", "canvasrenderer"], function (exports_10, context_10) {
     "use strict";
-    var __moduleName = context_8 && context_8.id;
-    var raytracer_1, canvasrenderer_1, main;
+    var __moduleName = context_10 && context_10.id;
+    var raytracer_1, scene_1, canvasrenderer_1, main;
     return {
         setters: [
             function (raytracer_1_1) {
                 raytracer_1 = raytracer_1_1;
+            },
+            function (scene_1_1) {
+                scene_1 = scene_1_1;
             },
             function (canvasrenderer_1_1) {
                 canvasrenderer_1 = canvasrenderer_1_1;
@@ -560,7 +612,7 @@ System.register("main", ["raytracer", "canvasrenderer"], function (exports_8, co
         ],
         execute: function () {
             main = () => {
-                const scene = new raytracer_1.Scene();
+                const scene = new scene_1.Scene();
                 const rayTracer = new raytracer_1.RayTracer(scene);
                 const renderer = new canvasrenderer_1.CanvasRenderer(600, 400);
                 document.body.appendChild(renderer.output);
