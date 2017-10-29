@@ -93,7 +93,7 @@ class ShinyMaterial extends Material {
 
 /** A material that refracts rays. */
 class GlassMaterial extends Material {
-    color = Color.RED;
+    color = Color.BLACK;
 }
 
 /** All of the information about a hit and its ray. */
@@ -118,10 +118,12 @@ export class Scene {
 
     constructor() {
         for (let x = 0; x < 4; x++) for (let y = 0; y < 4; y++) for (let z = 0; z < 4; z++) {
-            if (z < 2 && x > 0 && x < 3 && y > 0 && y < 3) continue;
             const geometry = new Sphere(V(-200 + x * 120, 250 - 130 * y, 700 + 200 * z), 50);
-            const color = randomChoice([Color.RED, Color.BLUE, Color.GREEN, Color.CYAN, Color.MAGENTA, Color.YELLOW, Color.BLACK, Color.WHITE]);
-            const material = new (randomChoice([ShinyMaterial, MatteMaterial]) as any)(color) as Material;
+
+            const useGlass = z < 2 && x > 0 && x < 3 && y > 0 && y < 3;
+
+            const color = randomChoice([Color.RED, Color.BLUE, Color.GREEN ]);
+            const material = new (randomChoice(useGlass ? [GlassMaterial] : [ShinyMaterial, MatteMaterial]) as any)(color) as Material;
             this.items.push(new Item(geometry, material));
         }
     }

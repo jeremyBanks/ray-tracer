@@ -98,8 +98,8 @@ declare module "util" {
     export const randomChoice: <T>(choices: T[]) => T;
 }
 declare module "settings" {
-    export const samplesPerPixel = 8;
-    export const maxSamplesPerBounce = 4;
+    export const samplesPerPixel = 1;
+    export const maxSamplesPerBounce = 1;
     export const maxBounces = 8;
 }
 declare module "raytracer" {

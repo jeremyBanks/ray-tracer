@@ -313,8 +313,8 @@ System.register("settings", [], function (exports_6, context_6) {
     return {
         setters: [],
         execute: function () {
-            exports_6("samplesPerPixel", samplesPerPixel = 8);
-            exports_6("maxSamplesPerBounce", maxSamplesPerBounce = 4);
+            exports_6("samplesPerPixel", samplesPerPixel = 1);
+            exports_6("maxSamplesPerBounce", maxSamplesPerBounce = 1);
             exports_6("maxBounces", maxBounces = 8);
         }
     };
@@ -423,7 +423,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
             GlassMaterial = class GlassMaterial extends Material {
                 constructor() {
                     super(...arguments);
-                    this.color = color_1.Color.RED;
+                    this.color = color_1.Color.BLACK;
                 }
             };
             /** All of the information about a hit and its ray. */
@@ -443,11 +443,10 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
                     for (let x = 0; x < 4; x++)
                         for (let y = 0; y < 4; y++)
                             for (let z = 0; z < 4; z++) {
-                                if (z < 2 && x > 0 && x < 3 && y > 0 && y < 3)
-                                    continue;
                                 const geometry = new geometry_2.Sphere(vector_3.V(-200 + x * 120, 250 - 130 * y, 700 + 200 * z), 50);
-                                const color = util_1.randomChoice([color_1.Color.RED, color_1.Color.BLUE, color_1.Color.GREEN, color_1.Color.CYAN, color_1.Color.MAGENTA, color_1.Color.YELLOW, color_1.Color.BLACK, color_1.Color.WHITE]);
-                                const material = new (util_1.randomChoice([ShinyMaterial, MatteMaterial]))(color);
+                                const useGlass = z < 2 && x > 0 && x < 3 && y > 0 && y < 3;
+                                const color = util_1.randomChoice([color_1.Color.RED, color_1.Color.BLUE, color_1.Color.GREEN]);
+                                const material = new (util_1.randomChoice(useGlass ? [GlassMaterial] : [ShinyMaterial, MatteMaterial]))(color);
                                 this.items.push(new Item(geometry, material));
                             }
                 }
