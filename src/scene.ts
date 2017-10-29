@@ -12,18 +12,24 @@ export class Scene {
     constructor() {
         this.items.push(
             new Item(
-                new Plane(V(0, -150, 0), Vector.Y),
-                new ShinyMaterial(RGB(0.10, 0.15, 0.10), 1.0, 0.5)));
+                new Plane(V(0, -450, 0), Vector.Y),
+                new MatteMaterial(RGB(0.15, 0.15, 0.15), 1.0, 0.5)));
+        
+        this.items.push(
+            new Item(
+                new Plane(V(0, 0, 5000), Vector.Z.negative()),
+                new ShinyMaterial(RGB(0.5, 0.5, 0.5), 1.0, 0.1)));
 
-        for (let x = 0; x < 4; x++) for (let y = 0; y < 4; y++) for (let z = 0; z < 4; z++) {
-            const geometry = new Sphere(V(-200 + x * 120, 250 - 130 * y, 1200 + 200 * z), 50);
-
-            const useGlass = z < 2 && x > 0 && x < 3 && y > 0 && y < 3;
-            if (useGlass) continue; // wow! it's invisible! how realistic.
-            if (Math.random() < 0.25) continue;
+        for (let x = -8; x < 8; x++)
+        for (let y = -8; y < 8; y++)
+        for (let z = -8; z < 8; z++) {
+            if (Math.random() < 0.95) continue;
+            
+            const position = V(x * 120, 130 * y, 2000 + 200 * z);
+            const geometry = new Sphere(position, Math.random() * 30 + 30);
 
             const color = randomChoice([Color.RED, Color.BLUE, Color.GREEN ]);
-            const material = new (randomChoice(useGlass ? [GlassMaterial] : [ShinyMaterial, MatteMaterial]) as any)(color, 0.5 * Math.random(), Math.random()) as Material;
+            const material = new (randomChoice([ShinyMaterial, MatteMaterial]) as any)(color, 0.5 * Math.random(), Math.random()) as Material;
             this.items.push(new Item(geometry, material));
         }
     }

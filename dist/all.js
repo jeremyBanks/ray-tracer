@@ -92,7 +92,7 @@ System.register("vector", [], function (exports_1, context_1) {
 System.register("geometry", ["vector"], function (exports_2, context_2) {
     "use strict";
     var __moduleName = context_2 && context_2.id;
-    var vector_1, Ray, Hit, Geometry, Sphere, Plane;
+    var vector_1, epsilon, Ray, Hit, Geometry, Sphere, Plane;
     return {
         setters: [
             function (vector_1_1) {
@@ -100,6 +100,8 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
             }
         ],
         execute: function () {
+            // fudge factor for floating point inaccuracy
+            epsilon = 0.00001;
             /** A ray proceeding from a point in a constant direction at one unit distance per one unit time. */
             Ray = class Ray {
                 constructor(origin, direction) {
@@ -108,7 +110,8 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
                 }
                 // The position of the ray at a given time.
                 at(t) {
-                    return new vector_1.Vector(this.origin.x + this.direction.x * t, this.origin.y + this.direction.y * t, this.origin.z + this.direction.z * t) || this.origin.add(this.direction.scale(t));
+                    return new vector_1.Vector(this.origin.x + this.direction.x * t, this.origin.y + this.direction.y * t, this.origin.z + this.direction.z * t)
+                        || this.origin.add(this.direction.scale(t));
                 }
             };
             exports_2("Ray", Ray);
@@ -124,12 +127,16 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
             exports_2("Hit", Hit);
             /** An object our rays can hit. */
             Geometry = class Geometry {
+                constructor(position, radius = Infinity) {
+                    this.position = position;
+                    this.radius = radius;
+                }
                 firstHit(ray) {
                     return this.hits(ray)[0] || null;
                 }
                 // hits on this ray that occur in the future (and so will will be drawn).
                 hits(ray) {
-                    return this.allHits(ray).filter(hit => hit.t > 0.0001).sort((a, b) => a.t - b.t);
+                    return this.allHits(ray).filter(hit => hit.t > epsilon).sort((a, b) => a.t - b.t);
                 }
                 // all hits on this ray, potentially including ones that occur backwards/in the past
                 allHits(ray) {
@@ -138,13 +145,8 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
             };
             exports_2("Geometry", Geometry);
             Sphere = class Sphere extends Geometry {
-                constructor(center, radius) {
-                    super();
-                    this.center = center;
-                    this.radius = radius;
-                }
                 allHits(ray) {
-                    const oc = ray.origin.sub(this.center);
+                    const oc = ray.origin.sub(this.position);
                     const a = ray.direction.dot(ray.direction);
                     const b = 2.0 * oc.dot(ray.direction);
                     const c = oc.dot(oc) - this.radius * this.radius;
@@ -156,13 +158,13 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
                             const t2 = (-b + Math.sqrt(discriminant)) / (2 * a);
                             const l2 = ray.at(t2);
                             return [
-                                new Hit(ray, t1, l1, l1.sub(this.center).direction()),
-                                new Hit(ray, t2, l2, l2.sub(this.center).direction())
+                                new Hit(ray, t1, l1, l1.sub(this.position).direction()),
+                                new Hit(ray, t2, l2, l2.sub(this.position).direction())
                             ];
                         }
                         else {
                             return [
-                                new Hit(ray, t1, l1, l1.sub(this.center).direction()),
+                                new Hit(ray, t1, l1, l1.sub(this.position).direction()),
                             ];
                         }
                     }
@@ -174,14 +176,13 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
             exports_2("Sphere", Sphere);
             Plane = class Plane extends Geometry {
                 constructor(origin, normal) {
-                    super();
-                    this.origin = origin;
+                    super(origin, Infinity);
                     this.normal = normal;
                 }
                 allHits(ray) {
                     const dot = ray.direction.dot(this.normal);
-                    if (Math.abs(dot) > 0.001) {
-                        const origin = ray.origin.sub(this.origin);
+                    if (Math.abs(dot) > epsilon) {
+                        const origin = ray.origin.sub(this.position);
                         const t = this.normal.dot(origin) / -dot;
                         return [new Hit(ray, t, ray.at(t), this.normal)];
                     }
@@ -439,18 +440,17 @@ System.register("scene", ["camera", "util", "color", "vector", "material", "geom
                 constructor() {
                     this.items = [];
                     this.camera = new camera_1.Camera();
-                    this.items.push(new Item(new geometry_2.Plane(vector_4.V(0, -150, 0), vector_4.Vector.Y), new material_1.ShinyMaterial(color_2.RGB(0.10, 0.15, 0.10), 1.0, 0.5)));
-                    for (let x = 0; x < 4; x++)
-                        for (let y = 0; y < 4; y++)
-                            for (let z = 0; z < 4; z++) {
-                                const geometry = new geometry_2.Sphere(vector_4.V(-200 + x * 120, 250 - 130 * y, 1200 + 200 * z), 50);
-                                const useGlass = z < 2 && x > 0 && x < 3 && y > 0 && y < 3;
-                                if (useGlass)
-                                    continue; // wow! it's invisible! how realistic.
-                                if (Math.random() < 0.25)
+                    this.items.push(new Item(new geometry_2.Plane(vector_4.V(0, -450, 0), vector_4.Vector.Y), new material_1.MatteMaterial(color_2.RGB(0.15, 0.15, 0.15), 1.0, 0.5)));
+                    this.items.push(new Item(new geometry_2.Plane(vector_4.V(0, 0, 5000), vector_4.Vector.Z.negative()), new material_1.ShinyMaterial(color_2.RGB(0.5, 0.5, 0.5), 1.0, 0.1)));
+                    for (let x = -8; x < 8; x++)
+                        for (let y = -8; y < 8; y++)
+                            for (let z = -8; z < 8; z++) {
+                                if (Math.random() < 0.95)
                                     continue;
+                                const position = vector_4.V(x * 120, 130 * y, 2000 + 200 * z);
+                                const geometry = new geometry_2.Sphere(position, Math.random() * 30 + 30);
                                 const color = util_1.randomChoice([color_2.Color.RED, color_2.Color.BLUE, color_2.Color.GREEN]);
-                                const material = new (util_1.randomChoice(useGlass ? [material_1.GlassMaterial] : [material_1.ShinyMaterial, material_1.MatteMaterial]))(color, 0.5 * Math.random(), Math.random());
+                                const material = new (util_1.randomChoice([material_1.ShinyMaterial, material_1.MatteMaterial]))(color, 0.5 * Math.random(), Math.random());
                                 this.items.push(new Item(geometry, material));
                             }
                 }
@@ -486,7 +486,7 @@ System.register("raytracer", ["color", "geometry"], function (exports_8, context
             RayTracer = class RayTracer {
                 constructor(scene) {
                     this.maxSamplesPerBounce = 1;
-                    this.maxBounces = 8;
+                    this.maxBounces = 4;
                     this.scene = scene;
                 }
                 getRayColor(ray, previousHit) {

@@ -1,6 +1,10 @@
 import {Vector} from 'vector';
 
 
+// fudge factor for floating point inaccuracy
+const epsilon = 0.00001;
+
+
 /** A ray proceeding from a point in a constant direction at one unit distance per one unit time. */
 export class Ray {
     origin: Vector;
@@ -16,8 +20,9 @@ export class Ray {
         return new Vector(
             this.origin.x + this.direction.x * t,
             this.origin.y + this.direction.y * t,
-            this.origin.z + this.direction.z * t
-        ) || this.origin.add(this.direction.scale(t));
+            this.origin.z + this.direction.z * t)
+        // inlining:
+        || this.origin.add(this.direction.scale(t))
     }
 }
 
@@ -40,13 +45,23 @@ export class Hit {
 
 /** An object our rays can hit. */
 export abstract class Geometry {
+    readonly position: Vector;
+    // non-spheres should still define their maximum bounding radius from position.
+    // if they're unbounded (i.e. a full plane) this may be Infinity.
+    readonly radius: number;
+
+    constructor(position: Vector, radius: number = Infinity) {
+        this.position = position;
+        this.radius = radius;
+    }
+
     firstHit(ray: Ray): Hit | null {
         return this.hits(ray)[0] || null;
     }
 
     // hits on this ray that occur in the future (and so will will be drawn).
     hits(ray: Ray): Hit[] {
-        return this.allHits(ray).filter(hit => hit.t > 0.0001).sort((a, b) => a.t - b.t);
+        return this.allHits(ray).filter(hit => hit.t > epsilon).sort((a, b) => a.t - b.t);
     }
 
     // all hits on this ray, potentially including ones that occur backwards/in the past
@@ -57,17 +72,9 @@ export abstract class Geometry {
 
 
 export class Sphere extends Geometry {
-    readonly center: Vector;
-    readonly radius: number;
-
-    constructor(center: Vector, radius: number) {
-        super();
-        this.center = center;
-        this.radius = radius;
-    }
 
     allHits(ray: Ray): Hit[] { 
-        const oc = ray.origin.sub(this.center);
+        const oc = ray.origin.sub(this.position);
         const a = ray.direction.dot(ray.direction);
         const b = 2.0 * oc.dot(ray.direction);
         const c = oc.dot(oc) - this.radius * this.radius;
@@ -81,12 +88,12 @@ export class Sphere extends Geometry {
                 const t2 = (-b + Math.sqrt(discriminant)) / (2 * a);
                 const l2 = ray.at(t2);
                 return [
-                    new Hit(ray, t1, l1, l1.sub(this.center).direction()),
-                    new Hit(ray, t2, l2, l2.sub(this.center).direction())
+                    new Hit(ray, t1, l1, l1.sub(this.position).direction()),
+                    new Hit(ray, t2, l2, l2.sub(this.position).direction())
                 ];
             } else {
                 return [
-                    new Hit(ray, t1, l1, l1.sub(this.center).direction()),
+                    new Hit(ray, t1, l1, l1.sub(this.position).direction()),
                 ];
             }
         } else {
@@ -97,19 +104,17 @@ export class Sphere extends Geometry {
 
 
 export class Plane extends Geometry {
-    readonly origin: Vector;
     readonly normal: Vector;
 
     constructor(origin: Vector, normal: Vector) {
-        super();
-        this.origin = origin;
+        super(origin, Infinity);
         this.normal = normal;
     }
     
     allHits(ray: Ray): Hit[] {
         const dot = ray.direction.dot(this.normal);
-        if (Math.abs(dot) > 0.001) {
-            const origin = ray.origin.sub(this.origin);
+        if (Math.abs(dot) > epsilon) {
+            const origin = ray.origin.sub(this.position);
             const t = this.normal.dot(origin) / -dot;
             return [new Hit(ray, t, ray.at(t), this.normal)];
         }

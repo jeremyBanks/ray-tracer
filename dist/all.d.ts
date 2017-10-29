@@ -42,18 +42,17 @@ declare module "geometry" {
     }
     /** An object our rays can hit. */
     export abstract class Geometry {
+        readonly position: Vector;
+        readonly radius: number;
+        constructor(position: Vector, radius?: number);
         firstHit(ray: Ray): Hit | null;
         hits(ray: Ray): Hit[];
         allHits(ray: Ray): Hit[];
     }
     export class Sphere extends Geometry {
-        readonly center: Vector;
-        readonly radius: number;
-        constructor(center: Vector, radius: number);
         allHits(ray: Ray): Hit[];
     }
     export class Plane extends Geometry {
-        readonly origin: Vector;
         readonly normal: Vector;
         constructor(origin: Vector, normal: Vector);
         allHits(ray: Ray): Hit[];
