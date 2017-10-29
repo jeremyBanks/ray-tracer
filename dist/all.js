@@ -309,13 +309,14 @@ System.register("util", [], function (exports_5, context_5) {
 System.register("settings", [], function (exports_6, context_6) {
     "use strict";
     var __moduleName = context_6 && context_6.id;
-    var samplesPerPixel, maxSamplesPerBounce, maxBounces;
+    var samplesPerPixel, intraSampleDelay, maxSamplesPerBounce, maxBounces;
     return {
         setters: [],
         execute: function () {
-            exports_6("samplesPerPixel", samplesPerPixel = 1);
-            exports_6("maxSamplesPerBounce", maxSamplesPerBounce = 1);
-            exports_6("maxBounces", maxBounces = 8);
+            exports_6("samplesPerPixel", samplesPerPixel = Infinity);
+            exports_6("intraSampleDelay", intraSampleDelay = 1000);
+            exports_6("maxSamplesPerBounce", maxSamplesPerBounce = 4);
+            exports_6("maxBounces", maxBounces = 16);
         }
     };
 });
@@ -391,7 +392,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
                 }
                 hitColor(tracer, rayHit) {
                     const colors = [];
-                    const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / (rayHit.previousHits + 1));
+                    const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / Math.pow(2, rayHit.previousHits));
                     for (let i = 0; i < samplesPerBounce; i++) {
                         colors.push([1, this.color]);
                         const scatteredRay = new geometry_2.Ray(rayHit.hit.location, rayHit.hit.normal.add(vector_3.Vector.randomUnit().scale(this.fuzz)).direction());
@@ -410,7 +411,7 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
                     const direction = rayHit.hit.ray.direction;
                     const reflection = direction.sub(rayHit.hit.normal.scale(2 * direction.dot(rayHit.hit.normal))).direction();
                     const colors = [];
-                    const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / (rayHit.previousHits + 1));
+                    const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / Math.pow(2, rayHit.previousHits));
                     for (let i = 0; i < samplesPerBounce; i++) {
                         colors.push([1, this.color]);
                         const reflectedRay = new geometry_2.Ray(rayHit.hit.location, reflection.add(vector_3.Vector.randomUnit().scale(this.fuzz)).direction());
@@ -445,6 +446,8 @@ System.register("raytracer", ["color", "vector", "geometry", "camera", "util", "
                             for (let z = 0; z < 4; z++) {
                                 const geometry = new geometry_2.Sphere(vector_3.V(-200 + x * 120, 250 - 130 * y, 700 + 200 * z), 50);
                                 const useGlass = z < 2 && x > 0 && x < 3 && y > 0 && y < 3;
+                                if (useGlass)
+                                    continue; // wow! it's invisible! how realistic.
                                 const color = util_1.randomChoice([color_1.Color.RED, color_1.Color.BLUE, color_1.Color.GREEN]);
                                 const material = new (util_1.randomChoice(useGlass ? [GlassMaterial] : [ShinyMaterial, MatteMaterial]))(color);
                                 this.items.push(new Item(geometry, material));
@@ -499,35 +502,59 @@ System.register("canvasrenderer", ["color", "settings"], function (exports_8, co
                     // how much we pad inside the potential camera frame on each side to match the target aspect ratio
                     const xPadding = (size - this.width) / 2;
                     const yPadding = (size - this.height) / 2;
-                    for (let yOffset = 0; yOffset < this.height; yOffset += chunkSize) {
-                        for (let xOffset = 0; xOffset < this.width; xOffset += chunkSize) {
-                            for (let x = xOffset; x < this.width && x < xOffset + chunkSize; x++) {
-                                for (let y = yOffset; y < this.height && y < yOffset + chunkSize; y++) {
-                                    const now = Date.now();
-                                    if (now - lastTime > 250) {
-                                        this.context.putImageData(this.image, 0, 0);
-                                        await new Promise(r => setTimeout(r));
-                                        lastTime = now;
-                                    }
-                                    const colors = [];
-                                    for (let i = 0; i < settings.samplesPerPixel; i++) {
-                                        const dx = Math.random() - 0.5;
-                                        const dy = Math.random() - 0.5;
-                                        colors.push(rayTracer.getRayColor(rayTracer.scene.camera.getRay((xPadding + x + dx) / (size - 1), (yPadding + y + dy) / (size - 1))));
-                                    }
-                                    const pixel = color_2.Color.blend(colors).pow(0.45);
+                    this.context.clearRect(0, 0, this.width, this.height);
+                    this.output.src = this.canvas.toDataURL();
+                    const samples = [];
+                    for (let y = 0; y < this.width; y++) {
+                        const row = [];
+                        for (let x = 0; x < this.width; x++) {
+                            row.push([]);
+                        }
+                        samples.push(row);
+                    }
+                    for (let i = 0; i < settings.samplesPerPixel; i++) {
+                        if (i > 0) {
+                            for (let x = 0; x < this.width; x++)
+                                for (let y = 0; y < this.height; y++) {
+                                    // replace the canvas contents with a non-gamma-transformed version, so
+                                    // it's easier to see the new samples coming in over top.
+                                    const pixel = color_2.Color.blend(samples[y][x]);
                                     const offset = (y * this.width + x) * 4;
                                     this.image.data[offset + 0] = pixel.r8;
                                     this.image.data[offset + 1] = pixel.g8;
                                     this.image.data[offset + 2] = pixel.b8;
                                     this.image.data[offset + 3] = 0xFF;
                                 }
+                            this.context.putImageData(this.image, 0, 0);
+                            await new Promise(r => setTimeout(r, settings.intraSampleDelay));
+                        }
+                        for (let yOffset = 0; yOffset < this.height; yOffset += chunkSize) {
+                            for (let xOffset = 0; xOffset < this.width; xOffset += chunkSize) {
+                                for (let x = xOffset; x < this.width && x < xOffset + chunkSize; x++) {
+                                    for (let y = yOffset; y < this.height && y < yOffset + chunkSize; y++) {
+                                        const now = Date.now();
+                                        if (now - lastTime > 250) {
+                                            this.context.putImageData(this.image, 0, 0);
+                                            await new Promise(r => setTimeout(r));
+                                            lastTime = now;
+                                        }
+                                        const dx = Math.random() - 0.5;
+                                        const dy = Math.random() - 0.5;
+                                        samples[y][x].push(rayTracer.getRayColor(rayTracer.scene.camera.getRay((xPadding + x + dx) / (size - 1), (yPadding + y + dy) / (size - 1))));
+                                        const pixel = color_2.Color.blend(samples[y][x]).pow(0.45);
+                                        const offset = (y * this.width + x) * 4;
+                                        this.image.data[offset + 0] = pixel.r8;
+                                        this.image.data[offset + 1] = pixel.g8;
+                                        this.image.data[offset + 2] = pixel.b8;
+                                        this.image.data[offset + 3] = 0xFF;
+                                    }
+                                }
                             }
                         }
+                        this.context.putImageData(this.image, 0, 0);
+                        const dataUri = this.canvas.toDataURL();
+                        this.output.src = dataUri;
                     }
-                    this.context.putImageData(this.image, 0, 0);
-                    const dataUri = this.canvas.toDataURL();
-                    this.output.src = dataUri;
                 }
             };
             exports_8("CanvasRenderer", CanvasRenderer);

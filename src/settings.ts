@@ -1,3 +1,4 @@
-export const samplesPerPixel = 1;
-export const maxSamplesPerBounce = 1;
-export const maxBounces = 8;
+export const samplesPerPixel = Infinity;
+export const intraSampleDelay = 1000;
+export const maxSamplesPerBounce = 4;
+export const maxBounces = 16;

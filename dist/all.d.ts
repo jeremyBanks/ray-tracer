@@ -98,9 +98,10 @@ declare module "util" {
     export const randomChoice: <T>(choices: T[]) => T;
 }
 declare module "settings" {
-    export const samplesPerPixel = 1;
-    export const maxSamplesPerBounce = 1;
-    export const maxBounces = 8;
+    export const samplesPerPixel: number;
+    export const intraSampleDelay = 1000;
+    export const maxSamplesPerBounce = 4;
+    export const maxBounces = 16;
 }
 declare module "raytracer" {
     import { Color } from "color";

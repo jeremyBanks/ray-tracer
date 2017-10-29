@@ -61,7 +61,7 @@ class MatteMaterial extends Material {
 
     hitColor(tracer: RayTracer, rayHit: RayHit): Color {
         const colors: [number, Color][] = [];
-        const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / (rayHit.previousHits + 1));
+        const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / Math.pow(2, rayHit.previousHits));
         for (let i = 0; i < samplesPerBounce; i++) {
             colors.push([1, this.color]);
             const scatteredRay = new Ray(rayHit.hit.location, rayHit.hit.normal.add(Vector.randomUnit().scale(this.fuzz)).direction());
@@ -80,7 +80,7 @@ class ShinyMaterial extends Material {
         const direction = rayHit.hit.ray.direction;
         const reflection = direction.sub(rayHit.hit.normal.scale(2 * direction.dot(rayHit.hit.normal))).direction();
         const colors: [number, Color][] = [];
-        const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / (rayHit.previousHits + 1));
+        const samplesPerBounce = Math.ceil(settings.maxSamplesPerBounce / Math.pow(2, rayHit.previousHits));
         for (let i = 0; i < samplesPerBounce; i++) {
             colors.push([1, this.color]);
             const reflectedRay = new Ray(rayHit.hit.location, reflection.add(Vector.randomUnit().scale(this.fuzz)).direction());
@@ -121,6 +121,7 @@ export class Scene {
             const geometry = new Sphere(V(-200 + x * 120, 250 - 130 * y, 700 + 200 * z), 50);
 
             const useGlass = z < 2 && x > 0 && x < 3 && y > 0 && y < 3;
+            if (useGlass) continue; // wow! it's invisible! how realistic.
 
             const color = randomChoice([Color.RED, Color.BLUE, Color.GREEN ]);
             const material = new (randomChoice(useGlass ? [GlassMaterial] : [ShinyMaterial, MatteMaterial]) as any)(color) as Material;
