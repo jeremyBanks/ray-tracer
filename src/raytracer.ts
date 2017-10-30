@@ -7,7 +7,7 @@ import {Ray, Hit} from 'geometry';
 export class RayTracer {
     readonly scene: Scene;
 
-    readonly maxSamplesPerBounce = 4;
+    readonly maxSamplesPerBounce = 8;
     readonly maxBounces = 8;
 
     readonly skyColor = RGB(0x02/0xFF);
@@ -25,10 +25,9 @@ export class RayTracer {
             // the minimum possible t at which this object could be encountered.
             // may be negative the ray's origin is within those bounds,
             // or negative infinity if the item has no bounds.
-            let minDistance = item.geometry.firstPossibleHitT(ray);
-            if (minDistance == null) minDistance = +Infinity;
+            let minDistance = item.geometry.firstPossibleHitT(ray) as number;
             return {item, minDistance};
-        }).sort((a, b) => a.minDistance - b.minDistance);
+        }).filter(({minDistance}) => minDistance != null).sort((a, b) => a.minDistance - b.minDistance);
 
         let closestHit: Hit | undefined;
         let closestHitItem: Item | undefined;

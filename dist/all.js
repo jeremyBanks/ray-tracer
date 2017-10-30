@@ -584,7 +584,7 @@ System.register("raytracer", ["color", "geometry"], function (exports_9, context
         execute: function () {
             RayTracer = class RayTracer {
                 constructor(scene) {
-                    this.maxSamplesPerBounce = 4;
+                    this.maxSamplesPerBounce = 8;
                     this.maxBounces = 8;
                     this.skyColor = color_3.RGB(0x02 / 0xFF);
                     this.scene = scene;
@@ -598,10 +598,8 @@ System.register("raytracer", ["color", "geometry"], function (exports_9, context
                         // may be negative the ray's origin is within those bounds,
                         // or negative infinity if the item has no bounds.
                         let minDistance = item.geometry.firstPossibleHitT(ray);
-                        if (minDistance == null)
-                            minDistance = +Infinity;
                         return { item, minDistance };
-                    }).sort((a, b) => a.minDistance - b.minDistance);
+                    }).filter(({ minDistance }) => minDistance != null).sort((a, b) => a.minDistance - b.minDistance);
                     let closestHit;
                     let closestHitItem;
                     for (const { item, minDistance } of itemsByMinDistance) {
@@ -701,9 +699,18 @@ System.register("canvasrenderer", ["color"], function (exports_10, context_10) {
                         pixels.push(row);
                     }
                     let lastPassStartTime = 0;
+                    const passDurations = [];
                     for (let i = 0; i < this.samplesPerPixel; i++) {
                         if (i > 0) {
-                            this.debugger.textContent = `last pass took ${Date.now() - lastPassStartTime}ms`;
+                            const passDuration = Date.now() - lastPassStartTime;
+                            passDurations.push(passDuration);
+                            passDurations.sort();
+                            const medianDuration = passDurations[Math.floor(passDurations.length / 2)];
+                            const minDuration = Math.min(...passDurations);
+                            this.debugger.textContent =
+                                `  best: ${minDuration} ms\n` +
+                                    `median: ${medianDuration} ms\n` +
+                                    `latest: ${passDuration} ms\n`;
                             await new Promise(r => setTimeout(r, this.intraSampleDelay));
                         }
                         lastPassStartTime = Date.now();

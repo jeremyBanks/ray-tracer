@@ -59,9 +59,18 @@ export class CanvasRenderer {
         }
 
         let lastPassStartTime = 0;
+        const passDurations: number[] = [];
         for (let i = 0; i < this.samplesPerPixel; i++) {
             if (i > 0) {
-                this.debugger.textContent = `last pass took ${Date.now() - lastPassStartTime}ms`;
+                const passDuration = Date.now() - lastPassStartTime;
+                passDurations.push(passDuration);
+                passDurations.sort();
+                const medianDuration = passDurations[Math.floor(passDurations.length / 2)];
+                const minDuration = Math.min(...passDurations);
+                this.debugger.textContent =
+                    `  best: ${minDuration} ms\n` +
+                    `median: ${medianDuration} ms\n` +
+                    `latest: ${passDuration} ms\n`;
                 await new Promise(r => setTimeout(r, this.intraSampleDelay));
             }
             lastPassStartTime = Date.now();

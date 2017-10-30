@@ -18,6 +18,5 @@ img, canvas {
 
 .debugger {
     margin: 32px;
-    display: inline-block;
-    width: 300px;
+    font-size: 32px;
 }
