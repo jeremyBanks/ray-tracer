@@ -680,6 +680,8 @@ System.register("canvasrenderer", ["color"], function (exports_10, context_10) {
                     this.output = document.createElement('img');
                     this.output.width = this.width;
                     this.output.height = this.height;
+                    this.debugger = document.createElement('pre');
+                    this.debugger.classList.add('debugger');
                 }
                 async render(rayTracer) {
                     let lastTime = Date.now();
@@ -698,11 +700,13 @@ System.register("canvasrenderer", ["color"], function (exports_10, context_10) {
                         }
                         pixels.push(row);
                     }
+                    let lastPassStartTime = 0;
                     for (let i = 0; i < this.samplesPerPixel; i++) {
                         if (i > 0) {
-                            this.context.putImageData(this.image, 0, 0);
+                            this.debugger.textContent = `last pass took ${Date.now() - lastPassStartTime}ms`;
                             await new Promise(r => setTimeout(r, this.intraSampleDelay));
                         }
+                        lastPassStartTime = Date.now();
                         for (let yOffset = 0; yOffset < this.height; yOffset += chunkSize) {
                             for (let xOffset = 0; xOffset < this.width; xOffset += chunkSize) {
                                 const now = Date.now();
@@ -739,7 +743,6 @@ System.register("canvasrenderer", ["color"], function (exports_10, context_10) {
                         this.context.putImageData(this.image, 0, 0);
                         const dataUri = this.canvas.toDataURL();
                         this.output.src = dataUri;
-                        await new Promise(r => setTimeout(r));
                     }
                 }
             };
@@ -770,6 +773,7 @@ System.register("main", ["raytracer", "scene", "canvasrenderer"], function (expo
                 const renderer = new canvasrenderer_1.CanvasRenderer(600, 400);
                 document.body.appendChild(renderer.output);
                 document.body.appendChild(renderer.canvas);
+                document.body.appendChild(renderer.debugger);
                 renderer.render(rayTracer);
             };
             main();

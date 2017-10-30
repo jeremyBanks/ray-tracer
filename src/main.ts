@@ -10,6 +10,7 @@ const main = () => {
     
     document.body.appendChild(renderer.output); 
     document.body.appendChild(renderer.canvas);
+    document.body.appendChild(renderer.debugger);
 
     renderer.render(rayTracer);
 };

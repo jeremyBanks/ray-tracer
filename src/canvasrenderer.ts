@@ -7,6 +7,7 @@ export class CanvasRenderer {
     readonly context: CanvasRenderingContext2D;
     readonly image: ImageData;
     readonly output: HTMLImageElement;
+    readonly debugger: HTMLElement;
 
     readonly samplesPerPixel = Infinity;
     readonly intraSampleDelay = 0;
@@ -27,6 +28,8 @@ export class CanvasRenderer {
         this.output = document.createElement('img');
         this.output.width = this.width;
         this.output.height = this.height;
+        this.debugger = document.createElement('pre');
+        this.debugger.classList.add('debugger');
     }
 
     async render(rayTracer: RayTracer) {
@@ -55,11 +58,14 @@ export class CanvasRenderer {
             pixels.push(row);
         }
 
+        let lastPassStartTime = 0;
         for (let i = 0; i < this.samplesPerPixel; i++) {
             if (i > 0) {
-                this.context.putImageData(this.image, 0, 0);
+                this.debugger.textContent = `last pass took ${Date.now() - lastPassStartTime}ms`;
                 await new Promise(r => setTimeout(r, this.intraSampleDelay));
             }
+            lastPassStartTime = Date.now();
+
             for (let yOffset = 0; yOffset < this.height; yOffset += chunkSize) {
                 for (let xOffset = 0; xOffset < this.width; xOffset += chunkSize) {
                     const now = Date.now();
@@ -105,7 +111,6 @@ export class CanvasRenderer {
             this.context.putImageData(this.image, 0, 0);
             const dataUri = this.canvas.toDataURL();
             this.output.src = dataUri;
-            await new Promise(r => setTimeout(r));
         }
     }
 }

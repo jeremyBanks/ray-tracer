@@ -213,6 +213,7 @@ declare module "canvasrenderer" {
         readonly context: CanvasRenderingContext2D;
         readonly image: ImageData;
         readonly output: HTMLImageElement;
+        readonly debugger: HTMLElement;
         readonly samplesPerPixel: number;
         readonly intraSampleDelay: number;
         readonly width: number;
