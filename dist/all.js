@@ -570,7 +570,7 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
             CanvasRenderer = class CanvasRenderer {
                 constructor(width = 256, height = width) {
                     this.samplesPerPixel = Infinity;
-                    this.intraSampleDelay = 0;
+                    this.intraSampleDelay = 125;
                     this.width = width;
                     this.height = height;
                     this.canvas = document.createElement('canvas');
@@ -600,8 +600,9 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                         pixels.push(row);
                     }
                     let meanDev = 0;
-                    for (let i = 0; i < this.samplesPerPixel; i++) {
-                        if (i > 0) {
+                    const iOffset = 12;
+                    for (let i = iOffset; i < this.samplesPerPixel; i++) {
+                        if (i > iOffset) {
                             for (let x = 0; x < this.width; x++)
                                 for (let y = 0; y < this.height; y++) {
                                     // replace the canvas contents with a non-gamma-transformed version, so
@@ -625,11 +626,11 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                             const squaredDeviationsSum = squaredDeviations.reduce((a, b) => a + b);
                             return Math.sqrt(squaredDeviationsSum / (xs.length - 1));
                         };
-                        if (i > 6 && (i % 6 == 0)) {
+                        const precisionInterval = 16;
+                        if (i >= precisionInterval && (i % precisionInterval == 1)) {
                             const allDevs = [];
                             let minDev = +Infinity;
                             let maxDev = -Infinity;
-                            // we have at least two samples per pixel, so we can start prioritizing based on variation
                             for (const row of pixels) {
                                 for (const pixel of row) {
                                     const dev = stdDev(pixel.samples.map(p => p.r)) + stdDev(pixel.samples.map(p => p.g)) + stdDev(pixel.samples.map(p => p.b));
@@ -661,7 +662,7 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                                     }
                                     for (let y = yOffset; y < this.height && y < yOffset + chunkSize; y++) {
                                         const offset = (y * this.width + x) * 4;
-                                        if ((i % 6 != 5) && pixels[y][x].deviation < meanDev) {
+                                        if (meanDev && pixels[y][x].deviation < Math.sqrt((i % precisionInterval) / precisionInterval)) {
                                             this.image.data[offset + 0] = 0;
                                             this.image.data[offset + 1] = 0;
                                             this.image.data[offset + 2] = 0;
