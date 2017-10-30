@@ -140,6 +140,11 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
                     }
                     return first;
                 }
+                // all hits on this ray, optionally including ones that occur backwards/in the past
+                allHits(ray) {
+                    const hit = this.firstHit(ray);
+                    return hit ? [hit] : [];
+                }
             };
             exports_2("Geometry", Geometry);
             Sphere = class Sphere extends Geometry {
@@ -250,7 +255,7 @@ System.register("color", [], function (exports_4, context_4) {
         setters: [],
         execute: function () {
             /** An RGB number-channel color. */
-            exports_4("RGB", RGB = (r, g, b) => new Color(r, g, b));
+            exports_4("RGB", RGB = (r, g = r, b = (r + g) / 2) => new Color(r, g, b));
             Color = class Color {
                 constructor(r, g, b) {
                     if (!Number.isFinite(r))
@@ -342,7 +347,7 @@ System.register("util", [], function (exports_5, context_5) {
 System.register("material", ["vector", "color"], function (exports_6, context_6) {
     "use strict";
     var __moduleName = context_6 && context_6.id;
-    var vector_3, color_1, Material, MatteMaterial, ShinyMaterial, GlassMaterial;
+    var vector_3, color_1, Material, MatteMaterial, ShinyMaterial, GlassMaterial, Light;
     return {
         setters: [
             function (vector_3_1) {
@@ -356,6 +361,7 @@ System.register("material", ["vector", "color"], function (exports_6, context_6)
             /** A material a Hittable can be made of, determining how it's rendered. */
             Material = class Material {
                 constructor(color = color_1.Color.MAGENTA, colorStrength = 1.0, fuzziness = 0.0) {
+                    this.colorMode = 'absorb';
                     this.color = color;
                     this.colorStrength = Math.max(0, Math.min(1, colorStrength));
                     this.fuzziness = Math.max(0, Math.min(1, fuzziness));
@@ -405,13 +411,102 @@ System.register("material", ["vector", "color"], function (exports_6, context_6)
                 }
             };
             exports_6("GlassMaterial", GlassMaterial);
+            /** A light that emits light and also lets rays pass through */
+            Light = class Light extends Material {
+                constructor(color) {
+                    super(color, 1.0);
+                    this.colorMode = 'emit';
+                }
+            };
+            exports_6("Light", Light);
         }
     };
 });
-System.register("scene", ["camera", "util", "color", "vector", "material", "geometry"], function (exports_7, context_7) {
+System.register("voxel", ["vector", "geometry"], function (exports_7, context_7) {
     "use strict";
     var __moduleName = context_7 && context_7.id;
-    var camera_1, util_1, color_2, vector_4, material_1, geometry_2, Scene, Item;
+    var vector_4, geometry_2, VoxelGeometry, MaskedGeometry;
+    return {
+        setters: [
+            function (vector_4_1) {
+                vector_4 = vector_4_1;
+            },
+            function (geometry_2_1) {
+                geometry_2 = geometry_2_1;
+            }
+        ],
+        execute: function () {
+            VoxelGeometry = class VoxelGeometry extends geometry_2.Geometry {
+            };
+            exports_7("VoxelGeometry", VoxelGeometry);
+            MaskedGeometry = class MaskedGeometry extends VoxelGeometry {
+                constructor(position) {
+                    super(position);
+                    this.voxelDistance = 32;
+                    this.voxelRadius = 32;
+                    this.front = [
+                        [, , , , , , , ,],
+                        [, , , 1, 1, , , ,],
+                        [, , 1, , , 1, , ,],
+                        [, 1, 1, 1, 1, 1, 1, ,],
+                        [1, , , , , , , 1,],
+                        [, 1, , , , , 1, ,],
+                        [1, 1, 1, , , 1, 1, 1,],
+                        [, , , , , , , ,],
+                    ];
+                    this.top = [
+                        [, , , , , , , ,],
+                        [, , , , , , , ,],
+                        [, , , , , , , ,],
+                        [1, 1, 1, 1, 1, 1, 1, 1,],
+                        [, , , , , , , ,],
+                        [, , , , , , , ,],
+                        [, , , , , , , ,],
+                        [, , , , , , , ,],
+                    ];
+                    this.side = [
+                        [, , , , , , , ,],
+                        [, , , 1, , , , ,],
+                        [, , , 1, , , , ,],
+                        [, , , 1, , , , ,],
+                        [, , , 1, , , , ,],
+                        [, , , 1, , , , ,],
+                        [, , , 1, , , , ,],
+                        [, , , , , , , ,],
+                    ];
+                    this.pixelSize = 8;
+                    this.pixelWidth = this.pixelSize;
+                    this.pixelHeight = this.pixelSize;
+                    this.pixelDepth = this.pixelSize;
+                    // XXX: these super-wrong
+                    this.size = 8 * this.voxelDistance;
+                    this.radius = Math.sqrt(2.0) * this.size;
+                    this.voxelGeometries = [];
+                    for (let x = 0; x < this.pixelWidth; x++) {
+                        for (let y = 0; y < this.pixelHeight; y++) {
+                            for (let z = 0; z < this.pixelDepth; z++) {
+                                const yI = this.pixelHeight - 1 - y;
+                                const xI = x;
+                                const zI = z;
+                                if (this.front[yI][xI] && this.side[yI][zI] && this.top[zI][xI]) {
+                                    this.voxelGeometries.push(new geometry_2.Sphere(this.position.add(vector_4.V(x * this.voxelDistance, y * this.voxelDistance, z * this.voxelDistance)), this.voxelRadius));
+                                }
+                            }
+                        }
+                    }
+                }
+                allHits(ray) {
+                    return this.voxelGeometries.map(geo => geo.firstHit(ray)).filter(Boolean);
+                }
+            };
+            exports_7("MaskedGeometry", MaskedGeometry);
+        }
+    };
+});
+System.register("scene", ["camera", "util", "color", "vector", "material", "geometry", "voxel"], function (exports_8, context_8) {
+    "use strict";
+    var __moduleName = context_8 && context_8.id;
+    var camera_1, util_1, color_2, vector_5, material_1, geometry_3, voxel_1, Scene, Item;
     return {
         setters: [
             function (camera_1_1) {
@@ -423,14 +518,17 @@ System.register("scene", ["camera", "util", "color", "vector", "material", "geom
             function (color_2_1) {
                 color_2 = color_2_1;
             },
-            function (vector_4_1) {
-                vector_4 = vector_4_1;
+            function (vector_5_1) {
+                vector_5 = vector_5_1;
             },
             function (material_1_1) {
                 material_1 = material_1_1;
             },
-            function (geometry_2_1) {
-                geometry_2 = geometry_2_1;
+            function (geometry_3_1) {
+                geometry_3 = geometry_3_1;
+            },
+            function (voxel_1_1) {
+                voxel_1 = voxel_1_1;
             }
         ],
         execute: function () {
@@ -438,23 +536,27 @@ System.register("scene", ["camera", "util", "color", "vector", "material", "geom
                 constructor() {
                     this.items = [];
                     this.camera = new camera_1.Camera();
-                    const ground = new Item(new geometry_2.Plane(vector_4.V(0, -500, 0), vector_4.Vector.Y), new material_1.MatteMaterial(color_2.RGB(0.9, 1.0, 0.6), 1.0, 0.9));
-                    const wall = new Item(new geometry_2.Plane(vector_4.V(-500, 0, 0), vector_4.Vector.X), new material_1.ShinyMaterial(color_2.RGB(0.75, 0.75, 0.75), 1.0, 0.1));
-                    this.items.push(ground, wall);
-                    for (let x = -8; x < 8; x++)
+                    const ground = new Item(new geometry_3.Plane(vector_5.V(0, -500, 0), vector_5.Vector.Y), new material_1.MatteMaterial(color_2.RGB(0.2, 0.4, 0.1), 1.0, 0.9));
+                    const sky = new Item(new geometry_3.Plane(vector_5.V(0, 30000, 0), vector_5.Vector.Y.negative()), new material_1.MatteMaterial(color_2.RGB(0.3, 0.6, 0.9), 0.5, 0.8));
+                    const skyLight = new Item(new geometry_3.Plane(vector_5.V(0, 29000, 0), vector_5.Vector.Y.negative()), new material_1.Light(color_2.RGB(0.02, 0.04, 0.06)));
+                    const sun = new Item(new geometry_3.Sphere(vector_5.V(5000, 15000, 0), 10000), new material_1.Light(color_2.RGB(1.0, 1.0, 0.2)));
+                    this.items.push(ground, sky, skyLight, sun);
+                    const logo = new Item(new voxel_1.MaskedGeometry(vector_5.V(-100, -100, 1100)), new material_1.MatteMaterial(color_2.RGB(0.4, 0.4, 0.8), 1.0, 0.9));
+                    this.items.push(logo);
+                    for (let x = -4; x < 4; x++)
                         for (let y = -8; y < 8; y++)
-                            for (let z = -8; z < 8; z++) {
+                            for (let z = -7; z < 0; z++) {
                                 if (Math.random() < 0.99)
                                     continue;
-                                const position = vector_4.V(x * 120, 130 * y, 4100 + 200 * z);
-                                const geometry = new geometry_2.Sphere(position, Math.random() * 230 + 30);
-                                const color = util_1.randomChoice([color_2.Color.RED, color_2.Color.BLUE, color_2.Color.GREEN]);
+                                const position = vector_5.V(x * 120, -400 + 130 * y, 4100 + 200 * z);
+                                const geometry = new geometry_3.Sphere(position, Math.random() * 300 + 30);
+                                const color = util_1.randomChoice([color_2.Color.RED, color_2.Color.BLUE, color_2.Color.GREEN, color_2.Color.WHITE, color_2.Color.BLACK]);
                                 const material = new (util_1.randomChoice([material_1.ShinyMaterial, material_1.MatteMaterial]))(color, 0.5 * Math.random(), Math.random());
                                 this.items.push(new Item(geometry, material));
                             }
                 }
             };
-            exports_7("Scene", Scene);
+            exports_8("Scene", Scene);
             Item = class Item {
                 constructor(geometry, material) {
                     this.geometry = geometry;
@@ -464,28 +566,29 @@ System.register("scene", ["camera", "util", "color", "vector", "material", "geom
                     return `${this.material} ${this.geometry}`;
                 }
             };
-            exports_7("Item", Item);
+            exports_8("Item", Item);
         }
     };
 });
-System.register("raytracer", ["color", "geometry"], function (exports_8, context_8) {
+System.register("raytracer", ["color", "geometry"], function (exports_9, context_9) {
     "use strict";
-    var __moduleName = context_8 && context_8.id;
-    var color_3, geometry_3, RayTracer, TracedHit;
+    var __moduleName = context_9 && context_9.id;
+    var color_3, geometry_4, RayTracer, TracedHit;
     return {
         setters: [
             function (color_3_1) {
                 color_3 = color_3_1;
             },
-            function (geometry_3_1) {
-                geometry_3 = geometry_3_1;
+            function (geometry_4_1) {
+                geometry_4 = geometry_4_1;
             }
         ],
         execute: function () {
             RayTracer = class RayTracer {
                 constructor(scene) {
-                    this.maxSamplesPerBounce = 1;
+                    this.maxSamplesPerBounce = 4;
                     this.maxBounces = 8;
+                    this.skyColor = color_3.RGB(0x01 / 0xFF);
                     this.scene = scene;
                 }
                 getRayColor(ray, previousHit) {
@@ -525,24 +628,24 @@ System.register("raytracer", ["color", "geometry"], function (exports_8, context
                         const samplesPerBounce = Math.ceil(this.maxSamplesPerBounce / Math.pow(2, tracedHit.previousCount));
                         const samples = [];
                         for (let i = 0; i < samplesPerBounce; i++) {
-                            const deflection = new geometry_3.Ray(closestHit.location, material.getDeflection(closestHit));
+                            const deflection = new geometry_4.Ray(closestHit.location, material.getDeflection(closestHit));
                             const color = this.getRayColor(deflection, tracedHit);
                             samples.push(color);
                         }
                         const deflectedColor = color_3.Color.blend(...samples);
-                        const blendColor = color_3.Color.blend([material.colorStrength, material.color], [1 - material.colorStrength, color_3.Color.WHITE]);
-                        return color_3.Color.multiply(blendColor, deflectedColor);
+                        if (material.colorMode == 'absorb') {
+                            const blendColor = color_3.Color.blend([material.colorStrength, material.color], [1 - material.colorStrength, color_3.Color.WHITE]);
+                            return color_3.Color.multiply(blendColor, deflectedColor);
+                        }
+                        else {
+                            const blendColor = color_3.Color.blend([material.colorStrength, material.color], [1 - material.colorStrength, color_3.Color.BLACK]);
+                            return color_3.Color.screen(blendColor, deflectedColor);
+                        }
                     }
-                    // background
-                    if (ray.direction.y > 0) {
-                        const i = Math.pow(1 - ray.direction.y, 2.0);
-                        return color_3.RGB(i, i, i);
-                    }
-                    else
-                        return color_3.Color.BLACK;
+                    return this.skyColor;
                 }
             };
-            exports_8("RayTracer", RayTracer);
+            exports_9("RayTracer", RayTracer);
             /** All of the information about a hit and its ray. */
             TracedHit = class TracedHit {
                 constructor(hit, subject, previousHit) {
@@ -552,13 +655,13 @@ System.register("raytracer", ["color", "geometry"], function (exports_8, context
                     this.previousCount = previousHit ? previousHit.previousCount + 1 : 0;
                 }
             };
-            exports_8("TracedHit", TracedHit);
+            exports_9("TracedHit", TracedHit);
         }
     };
 });
-System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
+System.register("canvasrenderer", ["color"], function (exports_10, context_10) {
     "use strict";
-    var __moduleName = context_9 && context_9.id;
+    var __moduleName = context_10 && context_10.id;
     var color_4, CanvasRenderer;
     return {
         setters: [
@@ -571,6 +674,7 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                 constructor(width = 256, height = width) {
                     this.samplesPerPixel = Infinity;
                     this.intraSampleDelay = 0;
+                    this.gammaPower = 0.45;
                     this.width = width;
                     this.height = height;
                     this.canvas = document.createElement('canvas');
@@ -606,17 +710,6 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                     const iOffset = precisionInterval - 3;
                     for (let i = iOffset; i < this.samplesPerPixel; i++) {
                         if (i > iOffset) {
-                            for (let x = 0; x < this.width; x++)
-                                for (let y = 0; y < this.height; y++) {
-                                    // replace the canvas contents with a non-gamma-transformed version, so
-                                    // it's easier to see the new samples coming in over top.
-                                    const pixel = color_4.Color.blend(...pixels[y][x].samples);
-                                    const offset = (y * this.width + x) * 4;
-                                    this.image.data[offset + 0] = pixel.r8;
-                                    this.image.data[offset + 1] = pixel.g8;
-                                    this.image.data[offset + 2] = pixel.b8;
-                                    this.image.data[offset + 3] = 0xFF;
-                                }
                             this.context.putImageData(this.image, 0, 0);
                             await new Promise(r => setTimeout(r, this.intraSampleDelay));
                         }
@@ -633,7 +726,8 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                             const allDevs = [];
                             for (const row of pixels) {
                                 for (const pixel of row) {
-                                    const dev = stdDev(pixel.samples.map(p => p.r)) + stdDev(pixel.samples.map(p => p.g)) + stdDev(pixel.samples.map(p => p.b));
+                                    const samples = pixel.samples;
+                                    const dev = Math.max(stdDev(samples.map(p => p.r)), stdDev(samples.map(p => p.g)), stdDev(samples.map(p => p.b)));
                                     if (dev < minDev) {
                                         minDev = dev;
                                     }
@@ -648,7 +742,7 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                             for (let xOffset = 0; xOffset < this.width; xOffset += chunkSize) {
                                 for (let x = xOffset; x < this.width && x < xOffset + chunkSize; x++) {
                                     const now = Date.now();
-                                    if (now - lastTime > 250) {
+                                    if (now - lastTime > 500) {
                                         this.context.putImageData(this.image, 0, 0);
                                         await new Promise(r => setTimeout(r));
                                         lastTime = now;
@@ -656,7 +750,7 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                                     for (let y = yOffset; y < this.height && y < yOffset + chunkSize; y++) {
                                         const offset = (y * this.width + x) * 4;
                                         const nearbyDevs = [];
-                                        const range = 1;
+                                        const range = 2;
                                         let maxNearbyDev = 0;
                                         for (let nx = -range; nx <= +range; nx++) {
                                             for (let ny = -range; ny <= +range; ny++) {
@@ -669,8 +763,8 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                                                     maxNearbyDev = d;
                                             }
                                         }
-                                        // mix in half of the local maximum to help smooth out incidentally under-sampled single pixels
-                                        const mixedDev = (pixels[y][x].deviation + maxNearbyDev) / 2;
+                                        // mix the local maximum to help smooth out incidentally under-sampled single pixels
+                                        const mixedDev = (pixels[y][x].deviation + 3 * maxNearbyDev) / 4;
                                         const deviation = ((mixedDev - minDev) / (maxDev - minDev));
                                         if (i >= precisionInterval && deviation < Math.sqrt((i % precisionInterval) / precisionInterval)) {
                                             this.image.data[offset + 0] = 0;
@@ -693,7 +787,7 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                         }
                         for (let x = 0; x < this.width; x++)
                             for (let y = 0; y < this.height; y++) {
-                                const pixel = color_4.Color.blend(...pixels[y][x].samples).pow(0.45);
+                                const pixel = color_4.Color.blend(...pixels[y][x].samples).pow(this.gammaPower);
                                 const offset = (y * this.width + x) * 4;
                                 this.image.data[offset + 0] = pixel.r8;
                                 this.image.data[offset + 1] = pixel.g8;
@@ -703,16 +797,17 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                         this.context.putImageData(this.image, 0, 0);
                         const dataUri = this.canvas.toDataURL();
                         this.output.src = dataUri;
+                        await new Promise(r => setTimeout(r));
                     }
                 }
             };
-            exports_9("CanvasRenderer", CanvasRenderer);
+            exports_10("CanvasRenderer", CanvasRenderer);
         }
     };
 });
-System.register("main", ["raytracer", "scene", "canvasrenderer"], function (exports_10, context_10) {
+System.register("main", ["raytracer", "scene", "canvasrenderer"], function (exports_11, context_11) {
     "use strict";
-    var __moduleName = context_10 && context_10.id;
+    var __moduleName = context_11 && context_11.id;
     var raytracer_1, scene_1, canvasrenderer_1, main;
     return {
         setters: [

@@ -1,5 +1,5 @@
 /** An RGB number-channel color. */
-export const RGB = (r: number, g: number, b: number) => new Color(r, g, b);
+export const RGB = (r: number, g: number = r, b: number = (r + g) / 2) => new Color(r, g, b);
 export class Color {
     static BLACK   = Object.freeze(new Color(0, 0, 0));
     static BLUE    = Object.freeze(new Color(0, 0, 1));

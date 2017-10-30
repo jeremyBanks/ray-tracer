@@ -7,6 +7,7 @@ import {Color} from 'color';
 export class Material {
     readonly color: Color;
     readonly colorStrength: number;
+    readonly colorMode: 'absorb' | 'emit' = 'absorb';
     readonly fuzziness: number;
 
     constructor(color: Color = Color.MAGENTA, colorStrength: number = 1.0, fuzziness: number = 0.0) {
@@ -59,4 +60,14 @@ export class ShinyMaterial extends Material {
 /** A material that refracts rays. */
 export class GlassMaterial extends Material {
     color = Color.RED;
+}
+
+
+/** A light that emits light and also lets rays pass through */
+export class Light extends Material {
+    readonly colorMode = 'emit';
+
+    constructor(color: Color) {
+        super(color, 1.0);
+    }
 }

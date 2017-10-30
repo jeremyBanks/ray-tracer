@@ -7,8 +7,10 @@ import {Ray, Hit} from 'geometry';
 export class RayTracer {
     readonly scene: Scene;
 
-    readonly maxSamplesPerBounce = 1;
+    readonly maxSamplesPerBounce = 4;
     readonly maxBounces = 8;
+
+    readonly skyColor = RGB(0x01/0xFF);
 
     constructor(scene: Scene) {
         this.scene = scene;
@@ -63,18 +65,21 @@ export class RayTracer {
                 samples.push(color);
             }
             const deflectedColor = Color.blend(...samples);
-            const blendColor = Color.blend(
-                [material.colorStrength, material.color],
-                [1 - material.colorStrength, Color.WHITE]);
 
-            return Color.multiply(blendColor, deflectedColor);
+            if (material.colorMode == 'absorb') {
+                const blendColor = Color.blend(
+                    [material.colorStrength, material.color],
+                    [1 - material.colorStrength, Color.WHITE]);
+                return Color.multiply(blendColor, deflectedColor);
+            } else {
+                const blendColor = Color.blend(
+                    [material.colorStrength, material.color],
+                    [1 - material.colorStrength, Color.BLACK]);
+                return Color.screen(blendColor, deflectedColor);
+            }
         }
         
-        // background
-        if (ray.direction.y > 0) {
-            const i = Math.pow(1 - ray.direction.y, 2.0);
-            return RGB(i, i, i);
-        } else return Color.BLACK;
+        return this.skyColor;
     }
 }
 

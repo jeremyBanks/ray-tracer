@@ -46,15 +46,15 @@ declare module "geometry" {
         readonly radius: number;
         constructor(position: Vector, radius?: number);
         firstHit(ray: Ray): Hit | null;
-        abstract allHits(ray: Ray): Hit[];
+        protected allHits(ray: Ray): Hit[];
     }
     export class Sphere extends Geometry {
-        allHits(ray: Ray): Hit[];
+        protected allHits(ray: Ray): Hit[];
     }
     export class Plane extends Geometry {
         readonly normal: Vector;
         constructor(origin: Vector, normal: Vector);
-        allHits(ray: Ray): Hit[];
+        protected allHits(ray: Ray): Hit[];
     }
 }
 declare module "camera" {
@@ -77,7 +77,7 @@ declare module "camera" {
 }
 declare module "color" {
     /** An RGB number-channel color. */
-    export const RGB: (r: number, g: number, b: number) => Color;
+    export const RGB: (r: number, g?: number, b?: number) => Color;
     export class Color {
         static BLACK: Readonly<Color>;
         static BLUE: Readonly<Color>;
@@ -111,6 +111,7 @@ declare module "material" {
     export class Material {
         readonly color: Color;
         readonly colorStrength: number;
+        readonly colorMode: 'absorb' | 'emit';
         readonly fuzziness: number;
         constructor(color?: Color, colorStrength?: number, fuzziness?: number);
         /**
@@ -139,6 +140,33 @@ declare module "material" {
     export class GlassMaterial extends Material {
         color: Readonly<Color>;
     }
+    /** A light that emits light and also lets rays pass through */
+    export class Light extends Material {
+        readonly colorMode: string;
+        constructor(color: Color);
+    }
+}
+declare module "voxel" {
+    import { Vector } from "vector";
+    import { Geometry, Ray, Hit } from "geometry";
+    export abstract class VoxelGeometry extends Geometry {
+    }
+    export class MaskedGeometry extends VoxelGeometry {
+        readonly voxelDistance: number;
+        readonly voxelRadius: number;
+        readonly front: (number | undefined)[][];
+        readonly top: (number[] | undefined[])[];
+        readonly side: (number | undefined)[][];
+        readonly pixelSize: number;
+        readonly pixelWidth: number;
+        readonly pixelHeight: number;
+        readonly pixelDepth: number;
+        readonly size: number;
+        readonly radius: number;
+        readonly voxelGeometries: Geometry[];
+        constructor(position: Vector);
+        protected allHits(ray: Ray): Hit[];
+    }
 }
 declare module "scene" {
     import { Camera } from "camera";
@@ -164,6 +192,7 @@ declare module "raytracer" {
         readonly scene: Scene;
         readonly maxSamplesPerBounce: number;
         readonly maxBounces: number;
+        readonly skyColor: Color;
         constructor(scene: Scene);
         getRayColor(ray: Ray, previousHit?: TracedHit): Color;
     }
@@ -187,6 +216,7 @@ declare module "canvasrenderer" {
         readonly intraSampleDelay: number;
         readonly width: number;
         readonly height: number;
+        readonly gammaPower: number;
         constructor(width?: number, height?: number);
         render(rayTracer: RayTracer): Promise<void>;
     }

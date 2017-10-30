@@ -65,12 +65,15 @@ export abstract class Geometry {
     }
 
     // all hits on this ray, optionally including ones that occur backwards/in the past
-    abstract allHits(ray: Ray): Hit[];
+    protected allHits(ray: Ray): Hit[] {
+        const hit = this.firstHit(ray);
+        return hit ? [hit] : [];
+    }
 }
 
 
 export class Sphere extends Geometry {
-    allHits(ray: Ray): Hit[] { 
+    protected allHits(ray: Ray): Hit[] { 
         const oc = ray.origin.sub(this.position);
         const a = ray.direction.dot(ray.direction);
         const b = 2.0 * oc.dot(ray.direction);
@@ -108,7 +111,7 @@ export class Plane extends Geometry {
         this.normal = normal;
     }
     
-    allHits(ray: Ray): Hit[] {
+    protected allHits(ray: Ray): Hit[] {
         const dot = ray.direction.dot(this.normal);
         if (Math.abs(dot) > epsilon) {
             const origin = ray.origin.sub(this.position);
