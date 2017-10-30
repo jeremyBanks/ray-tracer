@@ -9,7 +9,7 @@ export class CanvasRenderer {
     readonly output: HTMLImageElement;
 
     readonly samplesPerPixel = Infinity;
-    readonly intraSampleDelay = 125;
+    readonly intraSampleDelay = 0;
 
     readonly width: number;
     readonly height: number;
@@ -54,7 +54,10 @@ export class CanvasRenderer {
         }
 
         let meanDev = 0;
-        const iOffset = 12;
+        let minDev = +Infinity;
+        let maxDev = -Infinity;
+        const precisionInterval = 16;
+        const iOffset = precisionInterval - 3;
         for (let i = iOffset; i < this.samplesPerPixel; i++) {
             if (i > iOffset) {
                 for (let x = 0; x < this.width; x++) for (let y = 0; y < this.height; y++) {
@@ -80,12 +83,8 @@ export class CanvasRenderer {
                 return Math.sqrt(squaredDeviationsSum / (xs.length - 1));
             }
 
-            const precisionInterval = 16;
-
             if (i >= precisionInterval && (i % precisionInterval == 1)) {
                 const allDevs: number[] = [];
-                let minDev = +Infinity;
-                let maxDev = -Infinity;
                 for (const row of pixels) {
                     for (const pixel of row) {
                         const dev = stdDev(pixel.samples.map(p => p.r)) + stdDev(pixel.samples.map(p => p.g)) + stdDev(pixel.samples.map(p => p.b));
@@ -95,14 +94,7 @@ export class CanvasRenderer {
                         if (dev > maxDev) {
                             maxDev = dev;
                         }
-                        allDevs.push(dev);
-                    }
-                }
-                meanDev = allDevs.reduce((a, b) => a + b) / allDevs.length;
-                for (const row of pixels) {
-                    for (const pixel of row) {
-                        const dev = stdDev(pixel.samples.map(p => p.r)) + stdDev(pixel.samples.map(p => p.g)) + stdDev(pixel.samples.map(p => p.b));
-                        pixel.deviation = (dev - minDev) / (maxDev - minDev);
+                        pixel.deviation = dev;
                     }
                 }
             }
@@ -120,7 +112,23 @@ export class CanvasRenderer {
                         for (let y = yOffset; y < this.height && y < yOffset + chunkSize; y++) {
                             const offset = (y * this.width + x) * 4;
 
-                            if (meanDev && pixels[y][x].deviation < Math.sqrt((i % precisionInterval)/precisionInterval)) {
+                            const nearbyDevs = [];
+                            const range = 1;
+                            let maxNearbyDev = 0;
+                            for (let nx = -range; nx <= +range; nx++) {
+                                for (let ny = -range; ny <= +range; ny++) {
+                                    if (x + nx < 0 || x + nx >= this.width) continue;
+                                    if (y + ny < 0 || y + ny >= this.height) continue;
+                                    const d = pixels[y + ny][x + nx].deviation;
+                                    if (d > maxNearbyDev) maxNearbyDev = d;
+                                }
+                            }
+
+                            // mix in half of the local maximum to help smooth out incidentally under-sampled single pixels
+                            const mixedDev = (pixels[y][x].deviation + maxNearbyDev) / 2;
+                            const deviation = ((mixedDev - minDev) / (maxDev - minDev));
+
+                            if (i >= precisionInterval && deviation < Math.sqrt((i % precisionInterval)/precisionInterval)) {
                                 this.image.data[offset + 0] = 0;
                                 this.image.data[offset + 1] = 0;
                                 this.image.data[offset + 2] = 0;
