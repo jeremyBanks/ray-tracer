@@ -131,6 +131,15 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
                     this.position = position;
                     this.radius = radius;
                 }
+                // Returns a number providing a lower bound for t when this object could first be hit,
+                // or null if we can already cheaply tell that it won't be hit.
+                // this just uses the bounding radius and position.
+                firstPossibleHitT(ray) {
+                    const dx = this.position.x - ray.origin.x;
+                    const dy = this.position.y - ray.origin.y;
+                    const dz = this.position.z - ray.origin.z;
+                    return this.position.sub(ray.origin).magnitude() - this.radius;
+                }
                 firstHit(ray) {
                     let first = null;
                     for (const hit of this.allHits(ray)) {
@@ -443,7 +452,7 @@ System.register("voxel", ["vector", "geometry"], function (exports_7, context_7)
                 constructor(position) {
                     super(position);
                     this.voxelDistance = 32;
-                    this.voxelRadius = 32;
+                    this.voxelRadius = 30;
                     this.front = [
                         [, , , , , , , ,],
                         [, , , 1, 1, , , ,],
@@ -503,17 +512,14 @@ System.register("voxel", ["vector", "geometry"], function (exports_7, context_7)
         }
     };
 });
-System.register("scene", ["camera", "util", "color", "vector", "material", "geometry", "voxel"], function (exports_8, context_8) {
+System.register("scene", ["camera", "color", "vector", "material", "geometry", "voxel"], function (exports_8, context_8) {
     "use strict";
     var __moduleName = context_8 && context_8.id;
-    var camera_1, util_1, color_2, vector_5, material_1, geometry_3, voxel_1, Scene, Item;
+    var camera_1, color_2, vector_5, material_1, geometry_3, voxel_1, Scene, Item;
     return {
         setters: [
             function (camera_1_1) {
                 camera_1 = camera_1_1;
-            },
-            function (util_1_1) {
-                util_1 = util_1_1;
             },
             function (color_2_1) {
                 color_2 = color_2_1;
@@ -536,24 +542,16 @@ System.register("scene", ["camera", "util", "color", "vector", "material", "geom
                 constructor() {
                     this.items = [];
                     this.camera = new camera_1.Camera();
-                    const ground = new Item(new geometry_3.Plane(vector_5.V(0, -500, 0), vector_5.Vector.Y), new material_1.MatteMaterial(color_2.RGB(0.2, 0.4, 0.1), 1.0, 0.9));
-                    const sky = new Item(new geometry_3.Plane(vector_5.V(0, 30000, 0), vector_5.Vector.Y.negative()), new material_1.MatteMaterial(color_2.RGB(0.3, 0.6, 0.9), 0.5, 0.8));
-                    const skyLight = new Item(new geometry_3.Plane(vector_5.V(0, 29000, 0), vector_5.Vector.Y.negative()), new material_1.Light(color_2.RGB(0.02, 0.04, 0.06)));
-                    const sun = new Item(new geometry_3.Sphere(vector_5.V(5000, 15000, 0), 10000), new material_1.Light(color_2.RGB(1.0, 1.0, 0.2)));
-                    this.items.push(ground, sky, skyLight, sun);
-                    const logo = new Item(new voxel_1.MaskedGeometry(vector_5.V(-100, -100, 1100)), new material_1.MatteMaterial(color_2.RGB(0.4, 0.4, 0.8), 1.0, 0.9));
+                    const sun = new Item(new geometry_3.Sphere(vector_5.V(5000, 15000, 0), 10000), new material_1.Light(color_2.RGB(1.0, 1.0, 1.0)));
+                    this.items.push(sun);
+                    const miniSuns = [
+                        new Item(new geometry_3.Sphere(vector_5.V(500, 500, 0), 100), new material_1.Light(color_2.RGB(1, 0, 0))),
+                        new Item(new geometry_3.Sphere(vector_5.V(500, -500, 0), 100), new material_1.Light(color_2.RGB(0, 1, 0))),
+                        new Item(new geometry_3.Sphere(vector_5.V(-500, -500, 0), 100), new material_1.Light(color_2.RGB(0, 0, 1))),
+                    ];
+                    this.items.push(sun, ...miniSuns);
+                    const logo = new Item(new voxel_1.MaskedGeometry(vector_5.V(-100, -100, 1100)), new material_1.MatteMaterial(color_2.RGB(1), 1.0, 1.9));
                     this.items.push(logo);
-                    for (let x = -4; x < 4; x++)
-                        for (let y = -8; y < 8; y++)
-                            for (let z = -7; z < 0; z++) {
-                                if (Math.random() < 0.99)
-                                    continue;
-                                const position = vector_5.V(x * 120, -400 + 130 * y, 4100 + 200 * z);
-                                const geometry = new geometry_3.Sphere(position, Math.random() * 300 + 30);
-                                const color = util_1.randomChoice([color_2.Color.RED, color_2.Color.BLUE, color_2.Color.GREEN, color_2.Color.WHITE, color_2.Color.BLACK]);
-                                const material = new (util_1.randomChoice([material_1.ShinyMaterial, material_1.MatteMaterial]))(color, 0.5 * Math.random(), Math.random());
-                                this.items.push(new Item(geometry, material));
-                            }
                 }
             };
             exports_8("Scene", Scene);
@@ -588,23 +586,20 @@ System.register("raytracer", ["color", "geometry"], function (exports_9, context
                 constructor(scene) {
                     this.maxSamplesPerBounce = 4;
                     this.maxBounces = 8;
-                    this.skyColor = color_3.RGB(0x01 / 0xFF);
+                    this.skyColor = color_3.RGB(0x02 / 0xFF);
                     this.scene = scene;
                 }
                 getRayColor(ray, previousHit) {
                     if ((previousHit ? previousHit.previousCount : 0) + 1 >= this.maxBounces) {
                         return color_3.Color.BLACK;
                     }
-                    // XXX: it's unclear when/if this is actually helping more than it hurts.
                     const itemsByMinDistance = this.scene.items.map(item => {
                         // the minimum possible t at which this object could be encountered.
                         // may be negative the ray's origin is within those bounds,
                         // or negative infinity if the item has no bounds.
-                        const dx = item.geometry.position.x - ray.origin.x;
-                        const dy = item.geometry.position.y - ray.origin.y;
-                        const dz = item.geometry.position.z - ray.origin.z;
-                        const minDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                        // inlined: const minDistance = item.geometry.position.sub(ray.origin).magnitude() - item.geometry.radius;
+                        let minDistance = item.geometry.firstPossibleHitT(ray);
+                        if (minDistance == null)
+                            minDistance = +Infinity;
                         return { item, minDistance };
                     }).sort((a, b) => a.minDistance - b.minDistance);
                     let closestHit;
@@ -689,7 +684,7 @@ System.register("canvasrenderer", ["color"], function (exports_10, context_10) {
                 async render(rayTracer) {
                     let lastTime = Date.now();
                     const size = Math.max(this.width, this.height);
-                    const chunkSize = Math.floor(size / 32);
+                    const chunkSize = Math.floor(size / 16);
                     // how much we pad inside the potential camera frame on each side to match the target aspect ratio
                     const xPadding = (size - this.width) / 2;
                     const yPadding = (size - this.height) / 2;
@@ -703,76 +698,32 @@ System.register("canvasrenderer", ["color"], function (exports_10, context_10) {
                         }
                         pixels.push(row);
                     }
-                    let meanDev = 0;
-                    let minDev = +Infinity;
-                    let maxDev = -Infinity;
-                    const precisionInterval = 16;
-                    const iOffset = precisionInterval - 3;
-                    for (let i = iOffset; i < this.samplesPerPixel; i++) {
-                        if (i > iOffset) {
+                    for (let i = 0; i < this.samplesPerPixel; i++) {
+                        if (i > 0) {
                             this.context.putImageData(this.image, 0, 0);
                             await new Promise(r => setTimeout(r, this.intraSampleDelay));
                         }
-                        const stdDev = (xs) => {
-                            if (xs.length <= 1)
-                                return 0;
-                            const sum = xs.reduce((a, b) => a + b);
-                            const mean = sum / xs.length;
-                            const squaredDeviations = xs.map(x => Math.pow(x - mean, 2));
-                            const squaredDeviationsSum = squaredDeviations.reduce((a, b) => a + b);
-                            return Math.sqrt(squaredDeviationsSum / (xs.length - 1));
-                        };
-                        if (i >= precisionInterval && (i % precisionInterval == 1)) {
-                            const allDevs = [];
-                            for (const row of pixels) {
-                                for (const pixel of row) {
-                                    const samples = pixel.samples;
-                                    const dev = Math.max(stdDev(samples.map(p => p.r)), stdDev(samples.map(p => p.g)), stdDev(samples.map(p => p.b)));
-                                    if (dev < minDev) {
-                                        minDev = dev;
-                                    }
-                                    if (dev > maxDev) {
-                                        maxDev = dev;
-                                    }
-                                    pixel.deviation = dev;
-                                }
-                            }
-                        }
                         for (let yOffset = 0; yOffset < this.height; yOffset += chunkSize) {
                             for (let xOffset = 0; xOffset < this.width; xOffset += chunkSize) {
-                                for (let x = xOffset; x < this.width && x < xOffset + chunkSize; x++) {
-                                    const now = Date.now();
-                                    if (now - lastTime > 500) {
-                                        this.context.putImageData(this.image, 0, 0);
-                                        await new Promise(r => setTimeout(r));
-                                        lastTime = now;
+                                const now = Date.now();
+                                if (now - lastTime > 1000 / 8) {
+                                    const cursor = color_4.Color.RED;
+                                    for (let x = xOffset; x < this.width && x < xOffset + chunkSize; x++) {
+                                        for (let y = yOffset; y < this.height && y < yOffset + chunkSize; y++) {
+                                            const offset = (y * this.width + x) * 4;
+                                            this.image.data[offset + 0] = 0xFF - (this.image.data[offset + 0] / 2) | 0;
+                                            this.image.data[offset + 1] = 0xFF - this.image.data[offset + 1];
+                                            this.image.data[offset + 2] = 0xFF - this.image.data[offset + 2];
+                                            this.image.data[offset + 3] = 0xFF;
+                                        }
                                     }
+                                    this.context.putImageData(this.image, 0, 0);
+                                    await new Promise(r => setTimeout(r));
+                                    lastTime = now;
+                                }
+                                for (let x = xOffset; x < this.width && x < xOffset + chunkSize; x++) {
                                     for (let y = yOffset; y < this.height && y < yOffset + chunkSize; y++) {
                                         const offset = (y * this.width + x) * 4;
-                                        const nearbyDevs = [];
-                                        const range = 2;
-                                        let maxNearbyDev = 0;
-                                        for (let nx = -range; nx <= +range; nx++) {
-                                            for (let ny = -range; ny <= +range; ny++) {
-                                                if (x + nx < 0 || x + nx >= this.width)
-                                                    continue;
-                                                if (y + ny < 0 || y + ny >= this.height)
-                                                    continue;
-                                                const d = pixels[y + ny][x + nx].deviation;
-                                                if (d > maxNearbyDev)
-                                                    maxNearbyDev = d;
-                                            }
-                                        }
-                                        // mix the local maximum to help smooth out incidentally under-sampled single pixels
-                                        const mixedDev = (pixels[y][x].deviation + 3 * maxNearbyDev) / 4;
-                                        const deviation = ((mixedDev - minDev) / (maxDev - minDev));
-                                        if (i >= precisionInterval && deviation < Math.sqrt((i % precisionInterval) / precisionInterval)) {
-                                            this.image.data[offset + 0] = 0;
-                                            this.image.data[offset + 1] = 0;
-                                            this.image.data[offset + 2] = 0;
-                                            this.image.data[offset + 3] = 0xFF;
-                                            continue;
-                                        }
                                         const dx = Math.random() - 0.5;
                                         const dy = Math.random() - 0.5;
                                         pixels[y][x].samples.push(rayTracer.getRayColor(rayTracer.scene.camera.getRay((xPadding + x + dx) / (size - 1), (yPadding + y + dy) / (size - 1))));
@@ -785,15 +736,6 @@ System.register("canvasrenderer", ["color"], function (exports_10, context_10) {
                                 }
                             }
                         }
-                        for (let x = 0; x < this.width; x++)
-                            for (let y = 0; y < this.height; y++) {
-                                const pixel = color_4.Color.blend(...pixels[y][x].samples).pow(this.gammaPower);
-                                const offset = (y * this.width + x) * 4;
-                                this.image.data[offset + 0] = pixel.r8;
-                                this.image.data[offset + 1] = pixel.g8;
-                                this.image.data[offset + 2] = pixel.b8;
-                                this.image.data[offset + 3] = 0xFF;
-                            }
                         this.context.putImageData(this.image, 0, 0);
                         const dataUri = this.canvas.toDataURL();
                         this.output.src = dataUri;

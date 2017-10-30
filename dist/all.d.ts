@@ -45,6 +45,7 @@ declare module "geometry" {
         readonly position: Vector;
         readonly radius: number;
         constructor(position: Vector, radius?: number);
+        firstPossibleHitT(ray: Ray): number | null;
         firstHit(ray: Ray): Hit | null;
         protected allHits(ray: Ray): Hit[];
     }

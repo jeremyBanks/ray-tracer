@@ -54,6 +54,16 @@ export abstract class Geometry {
         this.radius = radius;
     }
 
+    // Returns a number providing a lower bound for t when this object could first be hit,
+    // or null if we can already cheaply tell that it won't be hit.
+    // this just uses the bounding radius and position.
+    firstPossibleHitT(ray: Ray): number | null {
+        const dx = this.position.x - ray.origin.x;
+        const dy = this.position.y - ray.origin.y;
+        const dz = this.position.z - ray.origin.z;
+        return this.position.sub(ray.origin).magnitude() - this.radius;
+    }
+
     firstHit(ray: Ray): Hit | null {
         let first: Hit | null = null;
         for (const hit of this.allHits(ray)) {

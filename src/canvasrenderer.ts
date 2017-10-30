@@ -32,7 +32,7 @@ export class CanvasRenderer {
     async render(rayTracer: RayTracer) {
         let lastTime = Date.now();
         const size = Math.max(this.width, this.height);
-        const chunkSize = Math.floor(size / 32);
+        const chunkSize = Math.floor(size / 16);
 
         // how much we pad inside the potential camera frame on each side to match the target aspect ratio
         const xPadding = (size - this.width) / 2;
@@ -55,79 +55,34 @@ export class CanvasRenderer {
             pixels.push(row);
         }
 
-        let meanDev = 0;
-        let minDev = +Infinity;
-        let maxDev = -Infinity;
-        const precisionInterval = 16;
-        const iOffset = precisionInterval - 3;
-        for (let i = iOffset; i < this.samplesPerPixel; i++) {
-            if (i > iOffset) {
+        for (let i = 0; i < this.samplesPerPixel; i++) {
+            if (i > 0) {
                 this.context.putImageData(this.image, 0, 0);
                 await new Promise(r => setTimeout(r, this.intraSampleDelay));
             }
-
-            const stdDev = (xs: number[]): number => {
-                if (xs.length <= 1) return 0;
-                const sum = xs.reduce((a, b) => a + b);
-                const mean = sum / xs.length;
-                const squaredDeviations = xs.map(x => Math.pow(x - mean, 2));
-                const squaredDeviationsSum = squaredDeviations.reduce((a, b) => a + b);
-                return Math.sqrt(squaredDeviationsSum / (xs.length - 1));
-            }
-
-            if (i >= precisionInterval && (i % precisionInterval == 1)) {
-                const allDevs: number[] = [];
-                for (const row of pixels) {
-                    for (const pixel of row) {
-                        const samples = pixel.samples;
-                        const dev = Math.max(stdDev(samples.map(p => p.r)), stdDev(samples.map(p => p.g)), stdDev(samples.map(p => p.b)));
-                        if (dev < minDev) {
-                            minDev = dev;
-                        }
-                        if (dev > maxDev) {
-                            maxDev = dev;
-                        }
-                        pixel.deviation = dev;
-                    }
-                }
-            }
-
             for (let yOffset = 0; yOffset < this.height; yOffset += chunkSize) {
                 for (let xOffset = 0; xOffset < this.width; xOffset += chunkSize) {
-                    for (let x = xOffset; x < this.width && x < xOffset + chunkSize; x++) {
-                        const now = Date.now();
-                        if (now - lastTime > 500) {
-                            this.context.putImageData(this.image, 0, 0);
-                            await new Promise(r => setTimeout(r));
-                            lastTime = now;
+                    const now = Date.now();
+                    if (now - lastTime > 1000 / 8) {
+                        const cursor = Color.RED;    
+                        for (let x = xOffset; x < this.width && x < xOffset + chunkSize; x++) {
+                            for (let y = yOffset; y < this.height && y < yOffset + chunkSize; y++) {
+                                const offset = (y * this.width + x) * 4;
+                                this.image.data[offset + 0] = 0xFF - (this.image.data[offset + 0]/2)|0;
+                                this.image.data[offset + 1] = 0xFF - this.image.data[offset + 1];
+                                this.image.data[offset + 2] = 0xFF - this.image.data[offset + 2];
+                                this.image.data[offset + 3] = 0xFF;
+                            }
                         }
 
+                        this.context.putImageData(this.image, 0, 0);
+                        await new Promise(r => setTimeout(r));
+                        lastTime = now;
+                    }
+
+                    for (let x = xOffset; x < this.width && x < xOffset + chunkSize; x++) {
                         for (let y = yOffset; y < this.height && y < yOffset + chunkSize; y++) {
                             const offset = (y * this.width + x) * 4;
-
-                            const nearbyDevs = [];
-                            const range = 2;
-                            let maxNearbyDev = 0;
-                            for (let nx = -range; nx <= +range; nx++) {
-                                for (let ny = -range; ny <= +range; ny++) {
-                                    if (x + nx < 0 || x + nx >= this.width) continue;
-                                    if (y + ny < 0 || y + ny >= this.height) continue;
-                                    const d = pixels[y + ny][x + nx].deviation;
-                                    if (d > maxNearbyDev) maxNearbyDev = d;
-                                }
-                            }
-
-                            // mix the local maximum to help smooth out incidentally under-sampled single pixels
-                            const mixedDev = (pixels[y][x].deviation + 3 * maxNearbyDev) / 4;
-                            const deviation = ((mixedDev - minDev) / (maxDev - minDev));
-
-                            if (i >= precisionInterval && deviation < Math.sqrt((i % precisionInterval)/precisionInterval)) {
-                                this.image.data[offset + 0] = 0;
-                                this.image.data[offset + 1] = 0;
-                                this.image.data[offset + 2] = 0;
-                                this.image.data[offset + 3] = 0xFF;
-                                continue;
-                            }
 
                             const dx = Math.random() - 0.5;
                             const dy = Math.random() - 0.5;
@@ -147,14 +102,6 @@ export class CanvasRenderer {
                 }
             }
 
-            for (let x = 0; x < this.width; x++) for (let y = 0; y < this.height; y++) {
-                const pixel = Color.blend(...pixels[y][x].samples).pow(this.gammaPower);
-                const offset = (y * this.width + x) * 4;
-                this.image.data[offset + 0] = pixel.r8;
-                this.image.data[offset + 1] = pixel.g8;
-                this.image.data[offset + 2] = pixel.b8;
-                this.image.data[offset + 3] = 0xFF;
-            }
             this.context.putImageData(this.image, 0, 0);
             const dataUri = this.canvas.toDataURL();
             this.output.src = dataUri;

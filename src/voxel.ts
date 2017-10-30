@@ -9,7 +9,7 @@ export abstract class VoxelGeometry extends Geometry {
 
 export class MaskedGeometry extends VoxelGeometry {
     readonly voxelDistance = 32;
-    readonly voxelRadius = 32; 
+    readonly voxelRadius = 30;
 
     readonly front = [
         [ , , , , , , , ,],

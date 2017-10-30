@@ -10,7 +10,7 @@ export class RayTracer {
     readonly maxSamplesPerBounce = 4;
     readonly maxBounces = 8;
 
-    readonly skyColor = RGB(0x01/0xFF);
+    readonly skyColor = RGB(0x02/0xFF);
 
     constructor(scene: Scene) {
         this.scene = scene;
@@ -21,16 +21,12 @@ export class RayTracer {
             return Color.BLACK;
         }
 
-        // XXX: it's unclear when/if this is actually helping more than it hurts.
         const itemsByMinDistance = this.scene.items.map(item => {
             // the minimum possible t at which this object could be encountered.
             // may be negative the ray's origin is within those bounds,
             // or negative infinity if the item has no bounds.
-            const dx = item.geometry.position.x - ray.origin.x;
-            const dy = item.geometry.position.y - ray.origin.y;
-            const dz = item.geometry.position.z - ray.origin.z;
-            const minDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            // inlined: const minDistance = item.geometry.position.sub(ray.origin).magnitude() - item.geometry.radius;
+            let minDistance = item.geometry.firstPossibleHitT(ray);
+            if (minDistance == null) minDistance = +Infinity;
             return {item, minDistance};
         }).sort((a, b) => a.minDistance - b.minDistance);
 
