@@ -23,7 +23,7 @@ export class Scene {
         for (let x = -8; x < 8; x++)
         for (let y = -8; y < 8; y++)
         for (let z = -8; z < 8; z++) {
-            if (Math.random() < 0.95) continue;
+            if (Math.random() < 0.99) continue;
             
             const position = V(x * 120, 130 * y, 4100 + 200 * z);
             const geometry = new Sphere(position, Math.random() * 230 + 30);

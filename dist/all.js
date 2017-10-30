@@ -444,7 +444,7 @@ System.register("scene", ["camera", "util", "color", "vector", "material", "geom
                     for (let x = -8; x < 8; x++)
                         for (let y = -8; y < 8; y++)
                             for (let z = -8; z < 8; z++) {
-                                if (Math.random() < 0.95)
+                                if (Math.random() < 0.99)
                                     continue;
                                 const position = vector_4.V(x * 120, 130 * y, 4100 + 200 * z);
                                 const geometry = new geometry_2.Sphere(position, Math.random() * 230 + 30);
@@ -484,7 +484,7 @@ System.register("raytracer", ["color", "geometry"], function (exports_8, context
         execute: function () {
             RayTracer = class RayTracer {
                 constructor(scene) {
-                    this.maxSamplesPerBounce = 2;
+                    this.maxSamplesPerBounce = 1;
                     this.maxBounces = 8;
                     this.scene = scene;
                 }
@@ -570,7 +570,7 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
             CanvasRenderer = class CanvasRenderer {
                 constructor(width = 256, height = width) {
                     this.samplesPerPixel = Infinity;
-                    this.intraSampleDelay = 1000;
+                    this.intraSampleDelay = 0;
                     this.width = width;
                     this.height = height;
                     this.canvas = document.createElement('canvas');
@@ -591,21 +591,22 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                     const yPadding = (size - this.height) / 2;
                     this.context.clearRect(0, 0, this.width, this.height);
                     this.output.src = this.canvas.toDataURL();
-                    const samples = [];
+                    const pixels = [];
                     for (let y = 0; y < this.width; y++) {
                         const row = [];
                         for (let x = 0; x < this.width; x++) {
-                            row.push([]);
+                            row.push({ samples: [], deviation: 1 });
                         }
-                        samples.push(row);
+                        pixels.push(row);
                     }
+                    let meanDev = 0;
                     for (let i = 0; i < this.samplesPerPixel; i++) {
                         if (i > 0) {
                             for (let x = 0; x < this.width; x++)
                                 for (let y = 0; y < this.height; y++) {
                                     // replace the canvas contents with a non-gamma-transformed version, so
                                     // it's easier to see the new samples coming in over top.
-                                    const pixel = color_4.Color.blend(...samples[y][x]);
+                                    const pixel = color_4.Color.blend(...pixels[y][x].samples);
                                     const offset = (y * this.width + x) * 4;
                                     this.image.data[offset + 0] = pixel.r8;
                                     this.image.data[offset + 1] = pixel.g8;
@@ -615,21 +616,62 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                             this.context.putImageData(this.image, 0, 0);
                             await new Promise(r => setTimeout(r, this.intraSampleDelay));
                         }
+                        const stdDev = (xs) => {
+                            if (xs.length <= 1)
+                                return 0;
+                            const sum = xs.reduce((a, b) => a + b);
+                            const mean = sum / xs.length;
+                            const squaredDeviations = xs.map(x => Math.pow(x - mean, 2));
+                            const squaredDeviationsSum = squaredDeviations.reduce((a, b) => a + b);
+                            return Math.sqrt(squaredDeviationsSum / (xs.length - 1));
+                        };
+                        if (i > 6 && (i % 6 == 0)) {
+                            const allDevs = [];
+                            let minDev = +Infinity;
+                            let maxDev = -Infinity;
+                            // we have at least two samples per pixel, so we can start prioritizing based on variation
+                            for (const row of pixels) {
+                                for (const pixel of row) {
+                                    const dev = stdDev(pixel.samples.map(p => p.r)) + stdDev(pixel.samples.map(p => p.g)) + stdDev(pixel.samples.map(p => p.b));
+                                    if (dev < minDev) {
+                                        minDev = dev;
+                                    }
+                                    if (dev > maxDev) {
+                                        maxDev = dev;
+                                    }
+                                    allDevs.push(dev);
+                                }
+                            }
+                            meanDev = allDevs.reduce((a, b) => a + b) / allDevs.length;
+                            for (const row of pixels) {
+                                for (const pixel of row) {
+                                    const dev = stdDev(pixel.samples.map(p => p.r)) + stdDev(pixel.samples.map(p => p.g)) + stdDev(pixel.samples.map(p => p.b));
+                                    pixel.deviation = (dev - minDev) / (maxDev - minDev);
+                                }
+                            }
+                        }
                         for (let yOffset = 0; yOffset < this.height; yOffset += chunkSize) {
                             for (let xOffset = 0; xOffset < this.width; xOffset += chunkSize) {
                                 for (let x = xOffset; x < this.width && x < xOffset + chunkSize; x++) {
+                                    const now = Date.now();
+                                    if (now - lastTime > 250) {
+                                        this.context.putImageData(this.image, 0, 0);
+                                        await new Promise(r => setTimeout(r));
+                                        lastTime = now;
+                                    }
                                     for (let y = yOffset; y < this.height && y < yOffset + chunkSize; y++) {
-                                        const now = Date.now();
-                                        if (now - lastTime > 250) {
-                                            this.context.putImageData(this.image, 0, 0);
-                                            await new Promise(r => setTimeout(r));
-                                            lastTime = now;
+                                        const offset = (y * this.width + x) * 4;
+                                        if ((i % 6 != 5) && pixels[y][x].deviation < meanDev) {
+                                            this.image.data[offset + 0] = 0;
+                                            this.image.data[offset + 1] = 0;
+                                            this.image.data[offset + 2] = 0;
+                                            this.image.data[offset + 3] = 0xFF;
+                                            continue;
                                         }
                                         const dx = Math.random() - 0.5;
                                         const dy = Math.random() - 0.5;
-                                        samples[y][x].push(rayTracer.getRayColor(rayTracer.scene.camera.getRay((xPadding + x + dx) / (size - 1), (yPadding + y + dy) / (size - 1))));
-                                        const pixel = color_4.Color.blend(...samples[y][x]).pow(0.45);
-                                        const offset = (y * this.width + x) * 4;
+                                        pixels[y][x].samples.push(rayTracer.getRayColor(rayTracer.scene.camera.getRay((xPadding + x + dx) / (size - 1), (yPadding + y + dy) / (size - 1))));
+                                        const pixel = color_4.Color.blend(...pixels[y][x].samples).pow(0.45);
                                         this.image.data[offset + 0] = pixel.r8;
                                         this.image.data[offset + 1] = pixel.g8;
                                         this.image.data[offset + 2] = pixel.b8;
@@ -638,6 +680,15 @@ System.register("canvasrenderer", ["color"], function (exports_9, context_9) {
                                 }
                             }
                         }
+                        for (let x = 0; x < this.width; x++)
+                            for (let y = 0; y < this.height; y++) {
+                                const pixel = color_4.Color.blend(...pixels[y][x].samples).pow(0.45);
+                                const offset = (y * this.width + x) * 4;
+                                this.image.data[offset + 0] = pixel.r8;
+                                this.image.data[offset + 1] = pixel.g8;
+                                this.image.data[offset + 2] = pixel.b8;
+                                this.image.data[offset + 3] = 0xFF;
+                            }
                         this.context.putImageData(this.image, 0, 0);
                         const dataUri = this.canvas.toDataURL();
                         this.output.src = dataUri;
