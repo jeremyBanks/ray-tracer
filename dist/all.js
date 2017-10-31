@@ -135,19 +135,28 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
                 // or null if we can already cheaply tell that it won't be hit.
                 // this just uses the bounding radius and position.
                 firstPossibleHitT(ray) {
-                    const displacement = this.position.sub(ray.origin);
-                    const tBasis = ray.direction;
-                    const rebasedT = displacement.dot(tBasis);
+                    const dX = this.position.x - ray.origin.x;
+                    const dY = this.position.y - ray.origin.y;
+                    const dZ = this.position.z - ray.origin.z;
+                    const vX = ray.direction.x;
+                    const vY = ray.direction.y;
+                    const vZ = ray.direction.z;
+                    const rebasedT = dX * vX + dY * vY + dZ * vZ;
                     const minT = rebasedT - this.radius;
                     const maxT = rebasedT + this.radius;
                     if (maxT < 0) {
                         return null;
                     }
-                    const xBasis = tBasis.cross(vector_1.V(-tBasis.x / 2, -tBasis.y / 2, -tBasis.z)).direction();
-                    const yBasis = tBasis.cross(xBasis).direction();
-                    const rebasedX = displacement.dot(xBasis);
-                    const rebasedY = displacement.dot(yBasis);
-                    if (Math.sqrt(rebasedX * rebasedX + rebasedY * rebasedY) > this.radius) {
+                    const yXP = -vZ * -vX;
+                    const yYP = vZ * vY;
+                    const yZP = vX * -vX - vY * vY;
+                    const yM = Math.sqrt(yXP * yXP + yYP * yYP + yZP * yZP);
+                    const yX = yXP / yM;
+                    const yY = yYP / yM;
+                    const yZ = yZP / yM;
+                    const x = dX * vY + dY * -vX;
+                    const y = dX * yX + dY * yY + dZ * yZ;
+                    if (Math.sqrt(x * x + y * y) > this.radius) {
                         return null;
                     }
                     return minT;
@@ -170,25 +179,36 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
             exports_2("Geometry", Geometry);
             Sphere = class Sphere extends Geometry {
                 allHits(ray) {
-                    const oc = ray.origin.sub(this.position);
-                    const a = ray.direction.dot(ray.direction);
-                    const b = 2.0 * oc.dot(ray.direction);
-                    const c = oc.dot(oc) - this.radius * this.radius;
+                    const pX = this.position.x;
+                    const pY = this.position.y;
+                    const pZ = this.position.z;
+                    const oX = ray.origin.x;
+                    const oY = ray.origin.y;
+                    const oZ = ray.origin.z;
+                    const vX = ray.direction.x;
+                    const vY = ray.direction.y;
+                    const vZ = ray.direction.z;
+                    const dX = oX - pX;
+                    const dY = oY - pY;
+                    const dZ = oZ - pZ;
+                    const a = (vX * vX + vY * vY + vZ * vZ);
+                    const b = 2.0 * (dX * vX + dY * vY + dZ * vZ);
+                    const c = (dX * dX + dY * dY + dZ * dZ) - this.radius * this.radius;
                     const discriminant = b * b - 4 * a * c;
                     if (discriminant >= 1) {
                         const t1 = (-b - Math.sqrt(discriminant)) / (2 * a);
-                        const l1 = ray.at(t1);
+                        const l1 = vector_1.V(oX + vX * t1, oY + vY * t1, oZ + vZ * t1);
                         if (discriminant == 2) {
                             const t2 = (-b + Math.sqrt(discriminant)) / (2 * a);
-                            const l2 = ray.at(t2);
+                            const l2 = vector_1.V(oX + vX * t2, oY + vY * t2, oZ + vZ * t2);
                             return [
-                                new Hit(ray, t1, l1, l1.sub(this.position).direction()),
-                                new Hit(ray, t2, l2, l2.sub(this.position).direction())
+                                new Hit(ray, t1, l1, vector_1.V(l1.x - pX, l1.y - pY, l1.z - pZ).direction()),
+                                new Hit(ray, t2, l2, vector_1.V(l2.x - pX, l2.y - pY, l2.z - pZ).direction()),
                             ];
                         }
                         else {
                             return [
-                                new Hit(ray, t1, l1, l1.sub(this.position).direction()),
+                                new Hit(ray, t1, l1, vector_1.V(l1.x - pX, l1.y - pY, l1.z - pZ).direction()),
                             ];
                         }
                     }
@@ -476,23 +496,23 @@ System.register("voxel", ["vector", "geometry"], function (exports_7, context_7)
                         [, , , , , , , ,],
                     ];
                     this.top = [
-                        [, , , , , , , ,],
-                        [, , , , , , , ,],
-                        [, , , , , , , ,],
                         [1, 1, 1, 1, 1, 1, 1, 1,],
                         [1, 1, 1, 1, 1, 1, 1, 1,],
-                        [, , , , , , , ,],
-                        [, , , , , , , ,],
-                        [, , , , , , , ,],
+                        [1, 1, 1, 1, 1, 1, 1, 1,],
+                        [1, 1, 1, 1, 1, 1, 1, 1,],
+                        [1, 1, 1, 1, 1, 1, 1, 1,],
+                        [1, 1, 1, 1, 1, 1, 1, 1,],
+                        [1, 1, 1, 1, 1, 1, 1, 1,],
+                        [1, 1, 1, 1, 1, 1, 1, 1,],
                     ];
                     this.side = [
                         [, , , , , , , ,],
-                        [, , , , 1, , , ,],
-                        [, , , , 1, , , ,],
-                        [, , , 1, , , , ,],
-                        [, , , , 1, , , ,],
-                        [, , , , 1, , , ,],
-                        [, , , 1, , , , ,],
+                        [, , , , , , 1, ,],
+                        [, , , , , 1, 1, ,],
+                        [, , , , 1, 1, 1, ,],
+                        [, , , 1, 1, 1, 1, ,],
+                        [, , 1, 1, 1, 1, 1, ,],
+                        [, 1, 1, 1, 1, 1, 1, ,],
                         [, , , , , , , ,],
                     ];
                     this.pixelSize = 8;
@@ -609,7 +629,7 @@ System.register("raytracer", ["color", "geometry"], function (exports_9, context
                 constructor(scene) {
                     this.maxSamplesPerBounce = 8;
                     this.maxBounces = 8;
-                    this.skyColor = color_3.RGB(0x02 / 0xFF);
+                    this.skyColor = color_3.Color.BLACK;
                     this.scene = scene;
                 }
                 getRayColor(ray, previousHit) {
@@ -762,7 +782,7 @@ System.register("canvasrenderer", ["color"], function (exports_10, context_10) {
                                         const dx = Math.random() - 0.5;
                                         const dy = Math.random() - 0.5;
                                         pixels[y][x].samples.push(rayTracer.getRayColor(rayTracer.scene.camera.getRay((xPadding + x + dx) / (size - 1), (yPadding + y + dy) / (size - 1))));
-                                        const pixel = color_4.Color.blend(...pixels[y][x].samples).pow(0.45);
+                                        const pixel = color_4.Color.blend(...pixels[y][x].samples).pow(this.gammaPower);
                                         this.image.data[offset + 0] = pixel.r8;
                                         this.image.data[offset + 1] = pixel.g8;
                                         this.image.data[offset + 2] = pixel.b8;

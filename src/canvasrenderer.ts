@@ -107,7 +107,7 @@ export class CanvasRenderer {
                                     (xPadding + x + dx) / (size - 1),
                                     (yPadding + y + dy) / (size - 1))));
                             
-                            const pixel = Color.blend(...pixels[y][x].samples).pow(0.45);
+                            const pixel = Color.blend(...pixels[y][x].samples).pow(this.gammaPower);
             
                             this.image.data[offset + 0] = pixel.r8;
                             this.image.data[offset + 1] = pixel.g8;

@@ -156,7 +156,7 @@ declare module "voxel" {
         readonly voxelDistance: number;
         readonly voxelRadius: number;
         readonly front: (number | undefined)[][];
-        readonly top: (number[] | undefined[])[];
+        readonly top: number[][];
         readonly side: (number | undefined)[][];
         readonly pixelSize: number;
         readonly pixelWidth: number;
@@ -193,7 +193,7 @@ declare module "raytracer" {
         readonly scene: Scene;
         readonly maxSamplesPerBounce: number;
         readonly maxBounces: number;
-        readonly skyColor: Color;
+        readonly skyColor: Readonly<Color>;
         constructor(scene: Scene);
         getRayColor(ray: Ray, previousHit?: TracedHit): Color;
     }

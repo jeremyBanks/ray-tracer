@@ -10,7 +10,7 @@ export class RayTracer {
     readonly maxSamplesPerBounce = 8;
     readonly maxBounces = 8;
 
-    readonly skyColor = RGB(0x02/0xFF);
+    readonly skyColor = Color.BLACK;
 
     constructor(scene: Scene) {
         this.scene = scene;
