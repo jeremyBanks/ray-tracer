@@ -74,7 +74,7 @@ export class Vector {
     cross(other: Vector): Vector {
         return new Vector(
             this.y * other.z - this.z * other.y,
-            -this.x * other.z - this.z * other.x,
+            this.z * other.x - this.x * other.z,
             this.x * other.y - this.y * other.x); 
     }
   

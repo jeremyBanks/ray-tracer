@@ -65,7 +65,7 @@ System.register("vector", [], function (exports_1, context_1) {
                 }
                 // cross product (result perpendicular to both operands)
                 cross(other) {
-                    return new Vector(this.y * other.z - this.z * other.y, -this.x * other.z - this.z * other.x, this.x * other.y - this.y * other.x);
+                    return new Vector(this.y * other.z - this.z * other.y, this.z * other.x - this.x * other.z, this.x * other.y - this.y * other.x);
                 }
                 // a random unit-length vector
                 static randomUnit() {
