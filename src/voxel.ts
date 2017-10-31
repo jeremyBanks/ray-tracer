@@ -26,18 +26,18 @@ export class MaskedGeometry extends VoxelGeometry {
         [ , , , , , , , ,],
         [ , , , , , , , ,],
         [1,1,1,1,1,1,1,1,],
-        [ , , , , , , , ,],
+        [1,1,1,1,1,1,1,1,],
         [ , , , , , , , ,],
         [ , , , , , , , ,],
         [ , , , , , , , ,],
     ];
     readonly side = [
         [ , , , , , , , ,],
+        [ , , , ,1, , , ,],
+        [ , , , ,1, , , ,],
         [ , , ,1, , , , ,],
-        [ , , ,1, , , , ,],
-        [ , , ,1, , , , ,],
-        [ , , ,1, , , , ,],
-        [ , , ,1, , , , ,],
+        [ , , , ,1, , , ,],
+        [ , , , ,1, , , ,],
         [ , , ,1, , , , ,],
         [ , , , , , , , ,],
     ];
@@ -80,12 +80,12 @@ export class MaskedGeometry extends VoxelGeometry {
     }
 
     firstPossibleHitT(ray: Ray): number | null {
-        if (super.firstPossibleHitT(ray) == null) return null;
+        // if (super.firstPossibleHitT(ray) == null) return null;
 
         let closestHit: number | null = null;
         for (const geo of this.voxelGeometries) {
             const h = geo.firstPossibleHitT(ray);
-            if (h && (closestHit === null || h < closestHit)) {
+            if (h !== null && (closestHit === null || h < closestHit)) {
                 closestHit = h;
             }
         }

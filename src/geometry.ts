@@ -1,4 +1,4 @@
-import {Vector} from 'vector';
+import {Vector, V} from 'vector';
 
 
 // fudge factor for floating point inaccuracy
@@ -58,10 +58,26 @@ export abstract class Geometry {
     // or null if we can already cheaply tell that it won't be hit.
     // this just uses the bounding radius and position.
     firstPossibleHitT(ray: Ray): number | null {
-        const dx = this.position.x - ray.origin.x;
-        const dy = this.position.y - ray.origin.y;
-        const dz = this.position.z - ray.origin.z;
-        return this.position.sub(ray.origin).magnitude() - this.radius;
+        const displacement = this.position.sub(ray.origin);
+        const tBasis = ray.direction;
+        const rebasedT = displacement.dot(tBasis);
+        const minT = rebasedT - this.radius;
+        const maxT = rebasedT + this.radius;
+
+        if (maxT < 0) {
+            return null;
+        }
+        
+        const xBasis = tBasis.cross(V(-tBasis.x / 2, -tBasis.y / 2, -tBasis.z)).direction();
+        const yBasis = tBasis.cross(xBasis).direction();
+        const rebasedX = displacement.dot(xBasis);
+        const rebasedY = displacement.dot(yBasis);
+
+        if (Math.sqrt(rebasedX * rebasedX + rebasedY * rebasedY) > this.radius) {
+            return null;
+        }
+
+        return minT;
     }
 
     firstHit(ray: Ray): Hit | null {

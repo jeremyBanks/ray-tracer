@@ -135,10 +135,22 @@ System.register("geometry", ["vector"], function (exports_2, context_2) {
                 // or null if we can already cheaply tell that it won't be hit.
                 // this just uses the bounding radius and position.
                 firstPossibleHitT(ray) {
-                    const dx = this.position.x - ray.origin.x;
-                    const dy = this.position.y - ray.origin.y;
-                    const dz = this.position.z - ray.origin.z;
-                    return this.position.sub(ray.origin).magnitude() - this.radius;
+                    const displacement = this.position.sub(ray.origin);
+                    const tBasis = ray.direction;
+                    const rebasedT = displacement.dot(tBasis);
+                    const minT = rebasedT - this.radius;
+                    const maxT = rebasedT + this.radius;
+                    if (maxT < 0) {
+                        return null;
+                    }
+                    const xBasis = tBasis.cross(vector_1.V(-tBasis.x / 2, -tBasis.y / 2, -tBasis.z)).direction();
+                    const yBasis = tBasis.cross(xBasis).direction();
+                    const rebasedX = displacement.dot(xBasis);
+                    const rebasedY = displacement.dot(yBasis);
+                    if (Math.sqrt(rebasedX * rebasedX + rebasedY * rebasedY) > this.radius) {
+                        return null;
+                    }
+                    return minT;
                 }
                 firstHit(ray) {
                     let first = null;
@@ -468,18 +480,18 @@ System.register("voxel", ["vector", "geometry"], function (exports_7, context_7)
                         [, , , , , , , ,],
                         [, , , , , , , ,],
                         [1, 1, 1, 1, 1, 1, 1, 1,],
-                        [, , , , , , , ,],
+                        [1, 1, 1, 1, 1, 1, 1, 1,],
                         [, , , , , , , ,],
                         [, , , , , , , ,],
                         [, , , , , , , ,],
                     ];
                     this.side = [
                         [, , , , , , , ,],
+                        [, , , , 1, , , ,],
+                        [, , , , 1, , , ,],
                         [, , , 1, , , , ,],
-                        [, , , 1, , , , ,],
-                        [, , , 1, , , , ,],
-                        [, , , 1, , , , ,],
-                        [, , , 1, , , , ,],
+                        [, , , , 1, , , ,],
+                        [, , , , 1, , , ,],
                         [, , , 1, , , , ,],
                         [, , , , , , , ,],
                     ];
@@ -506,12 +518,11 @@ System.register("voxel", ["vector", "geometry"], function (exports_7, context_7)
                     return this.voxelGeometries.map(geo => geo.firstHit(ray)).filter(Boolean);
                 }
                 firstPossibleHitT(ray) {
-                    if (super.firstPossibleHitT(ray) == null)
-                        return null;
+                    // if (super.firstPossibleHitT(ray) == null) return null;
                     let closestHit = null;
                     for (const geo of this.voxelGeometries) {
                         const h = geo.firstPossibleHitT(ray);
-                        if (h && (closestHit === null || h < closestHit)) {
+                        if (h !== null && (closestHit === null || h < closestHit)) {
                             closestHit = h;
                         }
                     }
@@ -560,8 +571,10 @@ System.register("scene", ["camera", "color", "vector", "material", "geometry", "
                         new Item(new geometry_3.Sphere(vector_5.V(-500, -500, -250), 500), new material_1.Light(color_2.RGB(0, 0, 1))),
                     ];
                     this.items.push(sun, ...miniSuns);
-                    const logo = new Item(new voxel_1.MaskedGeometry(vector_5.V(-100, -100, 750)), new material_1.MatteMaterial(color_2.RGB(1), 1.0, 1.9));
-                    this.items.push(logo);
+                    const logo = new voxel_1.MaskedGeometry(vector_5.V(-100, -100, 750));
+                    for (const geo of logo.voxelGeometries) {
+                        this.items.push(new Item(geo, new material_1.MatteMaterial(color_2.RGB(1), 1.0, 1.9)));
+                    }
                 }
             };
             exports_8("Scene", Scene);
