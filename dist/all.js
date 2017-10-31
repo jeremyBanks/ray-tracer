@@ -452,7 +452,7 @@ System.register("voxel", ["vector", "geometry"], function (exports_7, context_7)
                 constructor(position) {
                     super(position);
                     this.voxelDistance = 32;
-                    this.voxelRadius = 30;
+                    this.voxelRadius = 26;
                     this.front = [
                         [, , , , , , , ,],
                         [, , , 1, 1, , , ,],
@@ -487,9 +487,7 @@ System.register("voxel", ["vector", "geometry"], function (exports_7, context_7)
                     this.pixelWidth = this.pixelSize;
                     this.pixelHeight = this.pixelSize;
                     this.pixelDepth = this.pixelSize;
-                    // XXX: these super-wrong
-                    this.size = 8 * this.voxelDistance;
-                    this.radius = Math.sqrt(2.0) * this.size;
+                    this.radius = Infinity;
                     this.voxelGeometries = [];
                     for (let x = 0; x < this.pixelWidth; x++) {
                         for (let y = 0; y < this.pixelHeight; y++) {
@@ -506,6 +504,18 @@ System.register("voxel", ["vector", "geometry"], function (exports_7, context_7)
                 }
                 allHits(ray) {
                     return this.voxelGeometries.map(geo => geo.firstHit(ray)).filter(Boolean);
+                }
+                firstPossibleHitT(ray) {
+                    if (super.firstPossibleHitT(ray) == null)
+                        return null;
+                    let closestHit = null;
+                    for (const geo of this.voxelGeometries) {
+                        const h = geo.firstPossibleHitT(ray);
+                        if (h && (closestHit === null || h < closestHit)) {
+                            closestHit = h;
+                        }
+                    }
+                    return closestHit;
                 }
             };
             exports_7("MaskedGeometry", MaskedGeometry);
@@ -545,12 +555,12 @@ System.register("scene", ["camera", "color", "vector", "material", "geometry", "
                     const sun = new Item(new geometry_3.Sphere(vector_5.V(5000, 15000, 0), 10000), new material_1.Light(color_2.RGB(1.0, 1.0, 1.0)));
                     this.items.push(sun);
                     const miniSuns = [
-                        new Item(new geometry_3.Sphere(vector_5.V(500, 500, 0), 100), new material_1.Light(color_2.RGB(1, 0, 0))),
-                        new Item(new geometry_3.Sphere(vector_5.V(500, -500, 0), 100), new material_1.Light(color_2.RGB(0, 1, 0))),
-                        new Item(new geometry_3.Sphere(vector_5.V(-500, -500, 0), 100), new material_1.Light(color_2.RGB(0, 0, 1))),
+                        new Item(new geometry_3.Sphere(vector_5.V(0, -500, -250), 500), new material_1.Light(color_2.RGB(1, 0, 0))),
+                        new Item(new geometry_3.Sphere(vector_5.V(500, -500, -250), 500), new material_1.Light(color_2.RGB(0, 1, 0))),
+                        new Item(new geometry_3.Sphere(vector_5.V(-500, -500, -250), 500), new material_1.Light(color_2.RGB(0, 0, 1))),
                     ];
                     this.items.push(sun, ...miniSuns);
-                    const logo = new Item(new voxel_1.MaskedGeometry(vector_5.V(-100, -100, 1100)), new material_1.MatteMaterial(color_2.RGB(1), 1.0, 1.9));
+                    const logo = new Item(new voxel_1.MaskedGeometry(vector_5.V(-100, -100, 750)), new material_1.MatteMaterial(color_2.RGB(1), 1.0, 1.9));
                     this.items.push(logo);
                 }
             };
@@ -708,7 +718,8 @@ System.register("canvasrenderer", ["color"], function (exports_10, context_10) {
                             const medianDuration = passDurations[Math.floor(passDurations.length / 2)];
                             const minDuration = Math.min(...passDurations);
                             this.debugger.textContent =
-                                `  best: ${minDuration} ms\n` +
+                                `     ${i} passes\n` +
+                                    `  best: ${minDuration} ms\n` +
                                     `median: ${medianDuration} ms\n` +
                                     `latest: ${passDuration} ms\n`;
                             await new Promise(r => setTimeout(r, this.intraSampleDelay));

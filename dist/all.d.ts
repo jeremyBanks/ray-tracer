@@ -162,11 +162,11 @@ declare module "voxel" {
         readonly pixelWidth: number;
         readonly pixelHeight: number;
         readonly pixelDepth: number;
-        readonly size: number;
         readonly radius: number;
         readonly voxelGeometries: Geometry[];
         constructor(position: Vector);
         protected allHits(ray: Ray): Hit[];
+        firstPossibleHitT(ray: Ray): number | null;
     }
 }
 declare module "scene" {

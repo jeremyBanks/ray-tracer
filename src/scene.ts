@@ -20,20 +20,20 @@ export class Scene {
 
         const miniSuns = [
             new Item(
-                new Sphere(V(500, 500, 0), 100),
+                new Sphere(V(0, -500, -250), 500),
                 new Light(RGB(1, 0, 0))),
             new Item(
-                new Sphere(V(500, -500, 0), 100),
+                new Sphere(V(500, -500, -250), 500),
                 new Light(RGB(0, 1, 0))),
                 new Item(
-                new Sphere(V(-500, -500, 0), 100),
+                new Sphere(V(-500, -500, -250), 500),
                 new Light(RGB(0, 0, 1))),
             ];
 
         this.items.push(sun, ...miniSuns);
 
         const logo = new Item(
-            new MaskedGeometry(V(-100, -100, 1100)),
+            new MaskedGeometry(V(-100, -100, 750)),
             new MatteMaterial(RGB(1), 1.0, 1.9));
         this.items.push(logo);
     }

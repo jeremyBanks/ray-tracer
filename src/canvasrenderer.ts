@@ -68,6 +68,7 @@ export class CanvasRenderer {
                 const medianDuration = passDurations[Math.floor(passDurations.length / 2)];
                 const minDuration = Math.min(...passDurations);
                 this.debugger.textContent =
+                    `     ${i} passes\n` +
                     `  best: ${minDuration} ms\n` +
                     `median: ${medianDuration} ms\n` +
                     `latest: ${passDuration} ms\n`;

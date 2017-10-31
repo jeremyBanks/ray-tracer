@@ -9,7 +9,7 @@ export abstract class VoxelGeometry extends Geometry {
 
 export class MaskedGeometry extends VoxelGeometry {
     readonly voxelDistance = 32;
-    readonly voxelRadius = 30;
+    readonly voxelRadius = 26;
 
     readonly front = [
         [ , , , , , , , ,],
@@ -47,9 +47,7 @@ export class MaskedGeometry extends VoxelGeometry {
     readonly pixelHeight = this.pixelSize;
     readonly pixelDepth = this.pixelSize;
 
-    // XXX: these super-wrong
-    readonly size = 8 * this.voxelDistance;
-    readonly radius = Math.sqrt(2.0) * this.size
+    readonly radius = Infinity;
 
     readonly voxelGeometries: Geometry[] = [];
 
@@ -79,5 +77,19 @@ export class MaskedGeometry extends VoxelGeometry {
 
     protected allHits(ray: Ray): Hit[] { 
         return this.voxelGeometries.map(geo => geo.firstHit(ray)).filter(Boolean) as Hit[];
+    }
+
+    firstPossibleHitT(ray: Ray): number | null {
+        if (super.firstPossibleHitT(ray) == null) return null;
+
+        let closestHit: number | null = null;
+        for (const geo of this.voxelGeometries) {
+            const h = geo.firstPossibleHitT(ray);
+            if (h && (closestHit === null || h < closestHit)) {
+                closestHit = h;
+            }
+        }
+
+        return closestHit;
     }
 }
