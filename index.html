@@ -1,7 +1,19 @@
 <!doctype html>
 <head>
-    <script src="./dist/system.js"></script>
-    <script src="./dist/all.js"></script>
-    <link rel="stylesheet" href="./style.css" />
-<body>    
-    <script>SystemJS.import('main');</script>
+  <script src="./dist/system.js"></script>
+  <script src="./dist/all.js"></script>
+  <link rel="stylesheet" href="./style.css" />
+<body>
+  <main>
+    <section id="output">
+      <h2>output</h2>
+
+    </section>
+    <section id="state">
+      <h2>state</h2>
+
+    </section>
+  </main>
+  <script>
+    SystemJS.import('main');
+  </script>

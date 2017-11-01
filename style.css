@@ -4,6 +4,14 @@ body {
     padding: 0;
     margin: 0;
     text-align: center;
+    font-family: monospace;
+}
+
+section {
+    display: inline-block;
+    margin: 32px;
+    max-width: 400px;
+    vertical-align: top;
 }
 
 canvas, img:not([src]) {
@@ -11,8 +19,8 @@ canvas, img:not([src]) {
 }
 
 img, canvas {
-    margin: 32px;
     background: #444;
+    border: 1px solid #222;
     image-rendering: pixelated;
 }
 

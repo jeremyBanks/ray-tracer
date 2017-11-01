@@ -32,7 +32,7 @@ export class Scene {
 
         this.items.push(sun, ...miniSuns);
 
-        const logo = new MaskedGeometry(V(-100, -100, 750));
+        const logo = new MaskedGeometry(V(-112, -100, 550));
         for (const geo of logo.voxelGeometries) {
             this.items.push(new Item(
                 geo,

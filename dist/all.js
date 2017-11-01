@@ -591,7 +591,7 @@ System.register("scene", ["camera", "color", "vector", "material", "geometry", "
                         new Item(new geometry_3.Sphere(vector_5.V(-500, -500, -250), 500), new material_1.Light(color_2.RGB(0, 0, 1))),
                     ];
                     this.items.push(sun, ...miniSuns);
-                    const logo = new voxel_1.MaskedGeometry(vector_5.V(-100, -100, 750));
+                    const logo = new voxel_1.MaskedGeometry(vector_5.V(-112, -100, 550));
                     for (const geo of logo.voxelGeometries) {
                         this.items.push(new Item(geo, new material_1.MatteMaterial(color_2.RGB(1), 1.0, 1.9)));
                     }
@@ -821,10 +821,12 @@ System.register("main", ["raytracer", "scene", "canvasrenderer"], function (expo
             main = () => {
                 const scene = new scene_1.Scene();
                 const rayTracer = new raytracer_1.RayTracer(scene);
-                const renderer = new canvasrenderer_1.CanvasRenderer(600, 400);
-                document.body.appendChild(renderer.output);
-                document.body.appendChild(renderer.canvas);
-                document.body.appendChild(renderer.debugger);
+                const renderer = new canvasrenderer_1.CanvasRenderer(256, 256);
+                const output = document.querySelector('#output') || document.body;
+                output.appendChild(renderer.output);
+                const state = document.querySelector('#state') || document.body;
+                state.appendChild(renderer.canvas);
+                state.appendChild(renderer.debugger);
                 renderer.render(rayTracer);
             };
             main();
