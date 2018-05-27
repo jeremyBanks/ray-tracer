@@ -155,10 +155,10 @@ declare module "voxel" {
     export class MaskedGeometry extends VoxelGeometry {
         readonly voxelDistance: number;
         readonly voxelRadius: number;
-        readonly front: (number | undefined)[][];
-        readonly top: number[][];
-        readonly side: (number | undefined)[][];
         readonly pixelSize: number;
+        readonly front: any[][];
+        readonly top: any[][];
+        readonly side: any[][];
         readonly pixelWidth: number;
         readonly pixelHeight: number;
         readonly pixelDepth: number;
@@ -224,4 +224,5 @@ declare module "canvasrenderer" {
     }
 }
 declare module "main" {
+    export const main: () => Promise<void>;
 }

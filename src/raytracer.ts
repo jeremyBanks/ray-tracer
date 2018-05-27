@@ -7,7 +7,7 @@ import {Ray, Hit} from 'geometry';
 export class RayTracer {
     readonly scene: Scene;
 
-    readonly maxSamplesPerBounce = 8;
+    readonly maxSamplesPerBounce = 4;
     readonly maxBounces = 8;
 
     readonly skyColor = Color.BLACK;

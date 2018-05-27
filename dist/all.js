@@ -484,43 +484,28 @@ System.register("voxel", ["vector", "geometry"], function (exports_7, context_7)
                 constructor(position) {
                     super(position);
                     this.voxelDistance = 32;
-                    this.voxelRadius = 26;
-                    this.front = [
-                        [, , , , , , , ,],
-                        [, , , 1, 1, , , ,],
-                        [, , 1, , , 1, , ,],
-                        [, 1, 1, 1, 1, 1, 1, ,],
-                        [1, , , , , , , 1,],
-                        [, 1, , , , , 1, ,],
-                        [1, 1, 1, , , 1, 1, 1,],
-                        [, , , , , , , ,],
-                    ];
-                    this.top = [
-                        [1, 1, 1, 1, 1, 1, 1, 1,],
-                        [1, 1, 1, 1, 1, 1, 1, 1,],
-                        [1, 1, 1, 1, 1, 1, 1, 1,],
-                        [1, 1, 1, 1, 1, 1, 1, 1,],
-                        [1, 1, 1, 1, 1, 1, 1, 1,],
-                        [1, 1, 1, 1, 1, 1, 1, 1,],
-                        [1, 1, 1, 1, 1, 1, 1, 1,],
-                        [1, 1, 1, 1, 1, 1, 1, 1,],
-                    ];
-                    this.side = [
-                        [, , , , , , , ,],
-                        [, , , , , , 1, ,],
-                        [, , , , , 1, 1, ,],
-                        [, , , , 1, 1, 1, ,],
-                        [, , , 1, 1, 1, 1, ,],
-                        [, , 1, 1, 1, 1, 1, ,],
-                        [, 1, 1, 1, 1, 1, 1, ,],
-                        [, , , , , , , ,],
-                    ];
-                    this.pixelSize = 8;
+                    this.voxelRadius = 25;
+                    this.pixelSize = 16;
+                    this.front = new Array(this.pixelSize).fill(0).map(() => new Array(this.pixelSize).fill(0));
+                    this.top = new Array(this.pixelSize).fill(0).map(() => new Array(this.pixelSize).fill(0));
+                    this.side = new Array(this.pixelSize).fill(0).map(() => new Array(this.pixelSize).fill(0));
                     this.pixelWidth = this.pixelSize;
                     this.pixelHeight = this.pixelSize;
                     this.pixelDepth = this.pixelSize;
                     this.radius = Infinity;
                     this.voxelGeometries = [];
+                    for (let x = 0; x < this.pixelWidth; x++) {
+                        for (let y = 0; y < this.pixelHeight; y++) {
+                            for (let z = 0; z < this.pixelDepth; z++) {
+                                const yI = this.pixelHeight - 1 - y;
+                                const xI = x;
+                                const zI = z;
+                                this.front[yI][xI] = Math.random() > 0.1 ? 1 : 0;
+                                this.side[yI][zI] = Math.random() > 0.1 ? 1 : 0;
+                                this.top[zI][xI] = Math.random() > 0.1 ? 1 : 0;
+                            }
+                        }
+                    }
                     for (let x = 0; x < this.pixelWidth; x++) {
                         for (let y = 0; y < this.pixelHeight; y++) {
                             for (let z = 0; z < this.pixelDepth; z++) {
@@ -627,7 +612,7 @@ System.register("raytracer", ["color", "geometry"], function (exports_9, context
         execute: function () {
             RayTracer = class RayTracer {
                 constructor(scene) {
-                    this.maxSamplesPerBounce = 8;
+                    this.maxSamplesPerBounce = 4;
                     this.maxBounces = 8;
                     this.skyColor = color_3.Color.BLACK;
                     this.scene = scene;
@@ -801,34 +786,59 @@ System.register("canvasrenderer", ["color"], function (exports_10, context_10) {
         }
     };
 });
-System.register("main", ["raytracer", "scene", "canvasrenderer"], function (exports_11, context_11) {
+System.register("main", [], function (exports_11, context_11) {
     "use strict";
     var __moduleName = context_11 && context_11.id;
-    var raytracer_1, scene_1, canvasrenderer_1, main;
+    var sdSphere, imageDataToDataUrl, white, black, renderPixel, renderFrame, main;
     return {
-        setters: [
-            function (raytracer_1_1) {
-                raytracer_1 = raytracer_1_1;
-            },
-            function (scene_1_1) {
-                scene_1 = scene_1_1;
-            },
-            function (canvasrenderer_1_1) {
-                canvasrenderer_1 = canvasrenderer_1_1;
-            }
-        ],
+        setters: [],
         execute: function () {
-            main = () => {
-                const scene = new scene_1.Scene();
-                const rayTracer = new raytracer_1.RayTracer(scene);
-                const renderer = new canvasrenderer_1.CanvasRenderer(256, 256);
-                const output = document.querySelector('#output') || document.body;
-                output.appendChild(renderer.output);
-                const state = document.querySelector('#state') || document.body;
-                state.appendChild(renderer.canvas);
-                state.appendChild(renderer.debugger);
-                renderer.render(rayTracer);
+            // http://iquilezles.org/www/articles/distfunctions/distfunctions.htm
+            sdSphere = (origin, radius) => {
+                return origin.magnitude() - radius;
             };
+            imageDataToDataUrl = (imageData) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = imageData.width;
+                canvas.height = imageData.height;
+                canvas.getContext('2d').putImageData(imageData, 0, 0);
+                return canvas.toDataURL();
+            };
+            white = [0xFF, 0xFF, 0xFF];
+            black = [0x00, 0x00, 0x00];
+            renderPixel = (x, y) => {
+                return [
+                    (x + y) % (x - y),
+                    (x) % (x - y),
+                    (y) % (x - y),
+                ];
+            };
+            renderFrame = async () => {
+                const size = 1024;
+                const frame = new ImageData(size, size);
+                for (let x = 0; x < frame.width; x++) {
+                    for (let y = 0; y < frame.width; y++) {
+                        const pixel = renderPixel(x, y);
+                        const i = (y * frame.width + x) * 4;
+                        frame.data[i + 0] = pixel[0];
+                        frame.data[i + 1] = pixel[1];
+                        frame.data[i + 2] = pixel[2];
+                        frame.data[i + 3] = 0xFF;
+                    }
+                }
+                return frame;
+            };
+            exports_11("main", main = async () => {
+                const output = document.createElement('img');
+                output.id = 'output';
+                document.body.appendChild(output);
+                while (true) {
+                    const frame = await renderFrame();
+                    output.src = imageDataToDataUrl(frame);
+                    await new Promise(resolve => setTimeout(resolve, 16));
+                    break;
+                }
+            });
             main();
         }
     };

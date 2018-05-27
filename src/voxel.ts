@@ -9,40 +9,20 @@ export abstract class VoxelGeometry extends Geometry {
 
 export class MaskedGeometry extends VoxelGeometry {
     readonly voxelDistance = 32;
-    readonly voxelRadius = 26;
+    readonly voxelRadius = 25;
 
-    readonly front = [
-        [ , , , , , , , ,],
-        [ , , ,1,1, , , ,],
-        [ , ,1, , ,1, , ,],
-        [ ,1,1,1,1,1,1, ,],
-        [1, , , , , , ,1,],
-        [ ,1, , , , ,1, ,],
-        [1,1,1, , ,1,1,1,],
-        [ , , , , , , , ,],
-    ];
-    readonly top = [
-        [1,1,1,1,1,1,1,1,],
-        [1,1,1,1,1,1,1,1,],
-        [1,1,1,1,1,1,1,1,],
-        [1,1,1,1,1,1,1,1,],
-        [1,1,1,1,1,1,1,1,],
-        [1,1,1,1,1,1,1,1,],
-        [1,1,1,1,1,1,1,1,],
-        [1,1,1,1,1,1,1,1,],
-    ];
-    readonly side = [
-        [ , , , , , , , ,],
-        [ , , , , , ,1, ,],
-        [ , , , , ,1,1, ,],
-        [ , , , ,1,1,1, ,],
-        [ , , ,1,1,1,1, ,],
-        [ , ,1,1,1,1,1, ,],
-        [ ,1,1,1,1,1,1, ,],
-        [ , , , , , , , ,],
-    ];
+    readonly pixelSize = 16;
 
-    readonly pixelSize = 8;
+    readonly front =
+        new Array(this.pixelSize).fill(0).map(
+            () => new Array(this.pixelSize).fill(0));
+    readonly top =
+        new Array(this.pixelSize).fill(0).map(
+            () => new Array(this.pixelSize).fill(0));
+    readonly side =
+        new Array(this.pixelSize).fill(0).map(
+            () => new Array(this.pixelSize).fill(0));
+
     readonly pixelWidth = this.pixelSize;
     readonly pixelHeight = this.pixelSize;
     readonly pixelDepth = this.pixelSize;
@@ -53,6 +33,19 @@ export class MaskedGeometry extends VoxelGeometry {
 
     constructor(position: Vector) {
         super(position);
+        for (let x = 0; x < this.pixelWidth; x++) {
+            for (let y = 0; y < this.pixelHeight; y++) {
+                for (let z = 0; z < this.pixelDepth; z++) {
+                    const yI = this.pixelHeight - 1 - y;
+                    const xI = x;
+                    const zI = z;
+                    this.front[yI][xI] = Math.random() > 0.1 ? 1 : 0;
+                    this.side[yI][zI] = Math.random() > 0.1 ? 1 : 0;
+                    this.top[zI][xI] = Math.random() > 0.1 ? 1 : 0;
+                }
+            }
+        }
+
 
         for (let x = 0; x < this.pixelWidth; x++) {
             for (let y = 0; y < this.pixelHeight; y++) {
